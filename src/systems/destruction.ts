@@ -78,18 +78,31 @@ export function slam(
   return { hits: 0, point }
 }
 
+/** Old rubble frozen to fixed bodies (see Debris) registers here so blasts and
+ * slams can thaw it back to dynamic — debris ALWAYS reacts to physics. */
+const frozenDebris = new Map<number, () => void>()
+
+export function markFrozen(handle: number, thaw: () => void): void {
+  frozenDebris.set(handle, thaw)
+}
+
 /** Explosion shockwave: kick every dynamic body (debris, toys, projectiles)
- * radially away from the blast. Impulse scales with mass so everything gets a
- * comparable velocity kick, with distance falloff and an upward bias. */
+ * radially away from the blast — and re-animate any frozen rubble in range.
+ * Impulse scales with mass so everything gets a comparable velocity kick. */
 export function blastBodies(world: PhysicsWorld, cx: number, cy: number, cz: number, radius: number, strength: number): void {
   world.forEachRigidBody((body) => {
-    if (!body.isDynamic()) return
     const t = body.translation()
     const dx = t.x - cx
     const dy = t.y - cy
     const dz = t.z - cz
     const dist = Math.hypot(dx, dy, dz)
     if (dist > radius || dist < 1e-3) return
+    if (!body.isDynamic()) {
+      const thaw = frozenDebris.get(body.handle)
+      if (!thaw) return
+      thaw()
+      frozenDebris.delete(body.handle)
+    }
     const k = strength * (1 - dist / radius) * body.mass()
     body.applyImpulse({ x: (dx / dist) * k, y: (dy / dist + 0.7) * k, z: (dz / dist) * k }, true)
   })

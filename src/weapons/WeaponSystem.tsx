@@ -33,33 +33,37 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
   const { world } = useRapier()
   const w = shot.weapon
 
+  const detonate = () => {
+    if (spent.current) return
+    spent.current = true
+    const p = ref.current?.translation()
+    if (p) {
+      const at: [number, number, number] = [p.x, p.y, p.z]
+      radialSmash(at[0], at[1], at[2], w.blast ?? 5, w.blastPower ?? 10)
+      blastBodies(world, at[0], at[1], at[2], w.blast ?? 5, 3.2)
+      Audio.explosion(at)
+      emitFlash(at)
+      emitDust(at, 26, 0.7)
+      emitSparks(at, 26)
+      emitImpact(1, ...at)
+      hitStop(70)
+    }
+    onExpire(shot.id)
+  }
+  const detonateRef = useRef(detonate)
+  detonateRef.current = detonate
+
   useEffect(() => {
     ref.current?.setLinvel({ x: shot.vel[0], y: shot.vel[1], z: shot.vel[2] }, true)
     if (!w.blast) {
       const t = window.setTimeout(() => onExpire(shot.id), 8000)
       return () => window.clearTimeout(t)
     }
-    // frag: tumble in flight, detonate on the fuse wherever it lies
+    // frag: tumble in flight, detonate on first touch (safety timeout as backstop)
     ref.current?.setAngvel({ x: 6 + Math.random() * 6, y: (Math.random() - 0.5) * 4, z: (Math.random() - 0.5) * 8 }, true)
-    const fuse = window.setTimeout(() => {
-      if (spent.current) return
-      spent.current = true
-      const p = ref.current?.translation()
-      if (p) {
-        const at: [number, number, number] = [p.x, p.y, p.z]
-        radialSmash(at[0], at[1], at[2], w.blast ?? 5, w.blastPower ?? 10)
-        blastBodies(world, at[0], at[1], at[2], w.blast ?? 5, 3.2)
-        Audio.explosion(at)
-        emitFlash(at)
-        emitDust(at, 26, 0.7)
-        emitSparks(at, 26)
-        emitImpact(1, ...at)
-        hitStop(70)
-      }
-      onExpire(shot.id)
-    }, GRENADE_FUSE_S * 1000)
-    return () => window.clearTimeout(fuse)
-  }, [shot, w, world, onExpire])
+    const safety = window.setTimeout(() => detonateRef.current(), 8000)
+    return () => window.clearTimeout(safety)
+  }, [shot, w, onExpire])
 
   return (
     <RigidBody
@@ -68,16 +72,8 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
       position={shot.pos}
       ccd
       mass={w.mass}
-      restitution={w.blast ? 0.45 : 0.25}
-      onCollisionEnter={
-        w.blast
-          ? () => {
-              // fuse cooking — just the bounce tick (globally rate-limited)
-              const p = ref.current?.translation()
-              if (p) Audio.clank('metal', 0.2, [p.x, p.y, p.z])
-            }
-          : undefined
-      }
+      restitution={0.25}
+      onCollisionEnter={w.blast ? () => detonateRef.current() : undefined}
     >
       {w.blast ? (
         <GrenadeMesh scale={w.radius / 0.1} armed fuse={GRENADE_FUSE_S} />

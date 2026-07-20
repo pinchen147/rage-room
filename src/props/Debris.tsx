@@ -4,6 +4,7 @@ import type { InstancedRigidBodyProps, RapierRigidBody } from '@react-three/rapi
 import { getKit, getPhysics, getWreckGeos } from '../systems/shardKits'
 import type { WreckStyle } from '../systems/shardKits'
 import type { MaterialClass } from '../audio/sfx'
+import { markFrozen } from '../systems/destruction'
 
 /** Debris spawning. Each break = one instanced swarm of small material shards
  * plus a few BIG structural wreck pieces with per-material physics.
@@ -47,12 +48,17 @@ interface Batch extends DebrisSpec {
 
 const rand = (span: number): number => (Math.random() - 0.5) * span
 
-/** Freeze a body where it lies (dynamic → fixed). */
+/** Freeze bodies where they lie (dynamic → fixed) at zero solver cost — but
+ * register a thaw so blasts/slams snap them back to dynamic (always physical). */
 function useFreeze(frozen: boolean, bodies: () => (RapierRigidBody | null)[]) {
   const { rapier } = useRapier()
   useEffect(() => {
     if (!frozen) return
-    for (const b of bodies()) b?.setBodyType(rapier.RigidBodyType.Fixed, false)
+    for (const b of bodies()) {
+      if (!b || !b.isDynamic()) continue
+      b.setBodyType(rapier.RigidBodyType.Fixed, false)
+      markFrozen(b.handle, () => b.setBodyType(rapier.RigidBodyType.Dynamic, true))
+    }
   }, [frozen, rapier, bodies])
 }
 
