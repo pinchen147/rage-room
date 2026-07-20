@@ -59,6 +59,12 @@ export function Room() {
           <CuboidCollider key={i} args={w.half} position={w.pos} />
         ))}
 
+        {/* invisible flight containment: walls extended upward + ceiling */}
+        {WALLS.map((w, i) => (
+          <CuboidCollider key={`hi-${i}`} args={[w.half[0], 3.5, w.half[2]]} position={[w.pos[0], WALL_H * 2 + 3.5, w.pos[2]]} />
+        ))}
+        <CuboidCollider args={[ROOM_HALF, 0.5, ROOM_HALF]} position={[0, WALL_H * 2 + 7.2, 0]} />
+
         {/* roll-up door on the north wall */}
         <mesh position={[0, 1.9, -ROOM_HALF + 0.52]} receiveShadow>
           <boxGeometry args={[5.6, 3.8, 0.08]} />

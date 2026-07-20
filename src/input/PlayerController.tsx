@@ -98,7 +98,24 @@ export function PlayerController() {
   const vVel = useRef(0)
   const dashRef = useRef(0)
   const stepDist = useRef(0)
-  useEffect(() => onDash((s) => (dashRef.current = s)), [])
+  // Thor dash: lunge along the horizontal facing AND launch along your aim —
+  // look up to fly (chainable mid-air), look down while airborne to dive-slam.
+  useEffect(
+    () =>
+      onDash((s) => {
+        dashRef.current = s
+        const k = Math.sin(pitch.current)
+        const boost = s * 0.9
+        if (k >= 0) {
+          vVel.current = Math.max(vVel.current, boost * Math.max(0.16, k))
+        } else if (!playerMotion.grounded) {
+          vVel.current = Math.min(vVel.current, boost * k) // dive-slam
+        } else {
+          vVel.current = Math.max(vVel.current, 2)
+        }
+      }),
+    [],
+  )
   const euler = useMemo(() => new THREE.Euler(0, 0, 0, 'YXZ'), [])
   const move = useMemo(() => new THREE.Vector3(), [])
 
@@ -141,9 +158,16 @@ export function PlayerController() {
 
     const d = controller.computedMovement()
     const t = rb.translation()
-    const nx = t.x + d.x
-    const ny = t.y + d.y
-    const nz = t.z + d.z
+    let nx = t.x + d.x
+    let ny = t.y + d.y
+    let nz = t.z + d.z
+    if (ny < -4) {
+      // fell out of the world somehow — respawn
+      nx = 0
+      ny = 2
+      nz = 5
+      vVel.current = 0
+    }
     rb.setNextKinematicTranslation({ x: nx, y: ny, z: nz })
     camera.position.set(nx, ny + EYE, nz)
 

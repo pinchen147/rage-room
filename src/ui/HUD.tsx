@@ -109,6 +109,7 @@ export function HUD() {
           <div style={{ fontSize: 14, opacity: 0.85 }}>click to play</div>
           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 8, lineHeight: 1.7 }}>
             WASD move · mouse look · click / F = attack
+            <br />sledge dash launches you along your aim — look up to FLY, look down mid-air to dive-slam
             <br />1–3 / Q / E = swap weapon · scroll = cycle · R = new room · Esc = release
           </div>
         </div>
