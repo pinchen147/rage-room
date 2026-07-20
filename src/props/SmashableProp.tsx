@@ -31,6 +31,8 @@ export function SmashableProp({ def, position, rotationY = 0, rotationX = 0 }: P
   const body = useRef<RapierRigidBody>(null)
   const brokenRef = useRef(false)
   const readyRef = useRef(false)
+  const respawnTimer = useRef(0)
+  const readyTimer = useRef(0)
   const [broken, setBroken] = useState(false)
 
   // Source GLTFs use inconsistent units (the shelves are 21m raw). Measure the
@@ -116,13 +118,23 @@ export function SmashableProp({ def, position, rotationY = 0, rotationX = 0 }: P
     emitDust(origin, 8 + Math.round(energy * 14), 0.25 + size * 0.12)
     if (def.material === 'glass' || def.material === 'metal') emitSparks(origin, 8)
     if (energy > 0.45) hitStop(30 + energy * 45)
+
+    // Restock: the prop returns at its spawn point 10s later; the rubble stays.
+    respawnTimer.current = window.setTimeout(() => {
+      brokenRef.current = false
+      readyRef.current = false
+      setBroken(false)
+      emitDust(position, 6, 0.3)
+      window.clearTimeout(readyTimer.current)
+      readyTimer.current = window.setTimeout(() => (readyRef.current = true), 900)
+    }, 10_000)
   }
   const doBreakRef = useRef(doBreak)
   doBreakRef.current = doBreak
 
   useEffect(() => {
-    const t = window.setTimeout(() => (readyRef.current = true), 900)
-    if (!breakable) return () => window.clearTimeout(t)
+    readyTimer.current = window.setTimeout(() => (readyRef.current = true), 900)
+    if (!breakable) return () => window.clearTimeout(readyTimer.current)
     const unregister = registerBreakable({
       position: () => {
         const p = body.current?.translation()
@@ -133,7 +145,8 @@ export function SmashableProp({ def, position, rotationY = 0, rotationX = 0 }: P
       body: () => body.current,
     })
     return () => {
-      window.clearTimeout(t)
+      window.clearTimeout(readyTimer.current)
+      window.clearTimeout(respawnTimer.current)
       unregister()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
