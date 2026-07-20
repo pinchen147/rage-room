@@ -207,7 +207,9 @@ function FrozenBatch({
     const m = new THREE.Matrix4()
     const parts: THREE.BufferGeometry[] = []
     const bake = (source: THREE.BufferGeometry, piece: Piece) => {
-      const g = source.clone()
+      // mergeGeometries requires uniform layouts — arcs (Torus) are indexed,
+      // jagged shards are not. Normalize everything to non-indexed.
+      const g = source.index ? source.toNonIndexed() : source.clone()
       m.compose(
         new THREE.Vector3(...piece.p),
         _q.setFromEuler(_e.set(piece.r[0], piece.r[1], piece.r[2])),
@@ -218,7 +220,7 @@ function FrozenBatch({
     }
     for (const p of entry.shards) bake(shardGeo, p)
     for (const p of entry.wrecks) bake(wreckGeos[p.gi % wreckGeos.length], p)
-    const out = parts.length > 0 ? mergeGeometries(parts) : new THREE.BufferGeometry()
+    const out = (parts.length > 0 ? mergeGeometries(parts) : null) ?? new THREE.BufferGeometry()
     for (const g of parts) g.dispose()
     return out
   }, [entry, shardGeo, wreckGeos])
