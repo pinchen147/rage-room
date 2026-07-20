@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { AdaptiveDpr, Environment } from '@react-three/drei'
+import { AdaptiveDpr, Environment, Stats } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
 import { PlayerController } from './input/PlayerController'
 import { Room } from './scene/Room'
@@ -17,14 +17,16 @@ import { useTime } from './feel/timeState'
 import { HUD } from './ui/HUD'
 import './loaders/assets'
 
+const DEBUG = typeof window !== 'undefined' && window.location.search.includes('debug')
+
 export function App() {
   const frozen = useTime((s) => s.frozen)
 
   return (
     <>
       <Canvas
-        shadows
-        dpr={[1, 1.5]}
+        shadows="percentage"
+        dpr={[1, 1.25]}
         gl={{ antialias: false, stencil: false, depth: false, powerPreference: 'high-performance' }}
         camera={{ fov: 75, near: 0.1, far: 100, position: [0, 1.6, 5] }}
       >
@@ -49,6 +51,7 @@ export function App() {
         <HitStopDriver />
         <AdaptiveDpr pixelated />
         <Viewmodel />
+        {DEBUG && <Stats />}
       </Canvas>
       <HUD />
     </>

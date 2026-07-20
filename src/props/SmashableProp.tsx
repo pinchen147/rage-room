@@ -17,11 +17,13 @@ interface Props {
   def: PropDef
   position: [number, number, number]
   rotationY?: number
+  /** Lay-flat support (tyre piles). */
+  rotationX?: number
 }
 
 /** A real GLB prop: intact photoreal model → on a hard enough hit it swaps to a
  * per-material shard batch + dust + layered smash audio, and scores its mass. */
-export function SmashableProp({ def, position, rotationY = 0 }: Props) {
+export function SmashableProp({ def, position, rotationY = 0, rotationX = 0 }: Props) {
   const gltf = useGLTF(def.file)
   const destroy = useGame((s) => s.destroy)
   const addRage = useGame((s) => s.addRage)
@@ -41,7 +43,7 @@ export function SmashableProp({ def, position, rotationY = 0 }: Props) {
     clone.position.set(0, 0, 0)
     clone.traverse((o) => {
       if (o instanceof THREE.Mesh) {
-        o.castShadow = true
+        o.castShadow = def.castShadow ?? true
         o.receiveShadow = true
       }
     })
@@ -145,7 +147,7 @@ export function SmashableProp({ def, position, rotationY = 0 }: Props) {
       type="dynamic"
       colliders={def.collider}
       position={position}
-      rotation={[0, rotationY, 0]}
+      rotation={[rotationX, rotationY, 0]}
       restitution={def.restitution ?? 0.15}
       friction={0.85}
       onCollisionEnter={({ target, other }) => {

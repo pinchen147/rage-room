@@ -33,8 +33,13 @@ export function spawnDebris(spec: DebrisSpec): void {
   listener?.(spec)
 }
 
-const MAX_BATCHES = 30 // worst case ~360 shard bodies — inside the desktop budget
+const MAX_BATCHES = 18
 let nextBatchId = 0
+
+// Small shards live in collision group 3 and DON'T collide with each other —
+// piles of N shards otherwise generate O(N²) contacts, the main physics cost.
+// They still collide with the world, props, player, projectiles, and wrecks.
+const SHARD_GROUPS = 0x0008fff7
 
 interface Batch extends DebrisSpec {
   id: number
@@ -66,6 +71,7 @@ function ShardBatch({ batch }: { batch: Batch }) {
     <InstancedRigidBodies
       instances={instances}
       colliders="cuboid"
+      collisionGroups={SHARD_GROUPS}
       restitution={phys.restitution}
       friction={0.8}
       linearDamping={phys.linearDamping}
@@ -88,7 +94,7 @@ function WreckPiece({ batch, index }: { batch: Batch; index: number }) {
   const { origin, bias } = batch
   return (
     <RigidBody
-      colliders="hull"
+      colliders="cuboid"
       position={[origin[0] + rand(batch.spread), origin[1] + 0.12 + index * 0.06, origin[2] + rand(batch.spread)]}
       rotation={[Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI]}
       linearVelocity={[bias[0] * 0.7 + rand(2.5), Math.abs(bias[1]) * 0.45 + 1.2, bias[2] * 0.7 + rand(2.5)]}
@@ -99,7 +105,8 @@ function WreckPiece({ batch, index }: { batch: Batch; index: number }) {
       angularDamping={phys.angularDamping}
       gravityScale={phys.gravityScale}
     >
-      <mesh geometry={geo} material={kit.mat} scale={s} castShadow />
+      {/* no castShadow: 100+ wreck shadow casters double the depth pass; AO grounds them */}
+      <mesh geometry={geo} material={kit.mat} scale={s} />
     </RigidBody>
   )
 }

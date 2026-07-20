@@ -28,7 +28,7 @@ export function Effects() {
 
   return (
     <EffectComposer multisampling={0}>
-      <N8AO quality="medium" halfRes depthAwareUpsampling aoRadius={1.5} distanceFalloff={0.4} intensity={2} />
+      <N8AO quality="performance" halfRes depthAwareUpsampling aoRadius={1.2} distanceFalloff={0.4} intensity={2} />
       <Bloom mipmapBlur luminanceThreshold={1} intensity={0.75} />
       <ChromaticAberration offset={caOffset} radialModulation modulationOffset={0.35} />
       <Vignette offset={0.18} darkness={0.75} />

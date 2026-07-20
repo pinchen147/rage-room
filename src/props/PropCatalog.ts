@@ -25,6 +25,8 @@ export interface PropDef {
   restitution?: number
   shardCount: number
   heroes: number
+  /** Small fodder skips the shadow depth pass (AO grounds it) — default true. */
+  castShadow?: boolean
   /** Big structural piece style (shelf beams vs desk panels vs tyre strips). */
   wreck: WreckStyle
   /** Multi-material breakup (e.g. TV = glass screen + plastic shell). */
@@ -41,7 +43,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 14,
     breakSpeed: 7,
     collider: 'cuboid',
-    targetHeight: 0.7,
+    targetHeight: 0.8,
     shardCount: 16,
     heroes: 3,
     wreck: 'panels',
@@ -61,7 +63,8 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 2,
     breakSpeed: 5.5,
     collider: 'hull',
-    targetHeight: 0.52,
+    targetHeight: 0.6,
+    castShadow: false,
     shardCount: 10,
     heroes: 1,
     wreck: 'chunks',
@@ -73,7 +76,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 5,
     breakSpeed: 8,
     collider: 'hull',
-    targetHeight: 0.95,
+    targetHeight: 1.0,
     shardCount: 11,
     heroes: 2,
     wreck: 'panels',
@@ -85,7 +88,8 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 2,
     breakSpeed: 6,
     collider: 'cuboid',
-    targetHeight: 0.55,
+    targetHeight: 0.62,
+    castShadow: false,
     shardCount: 8,
     heroes: 2,
     wreck: 'panels',
@@ -109,7 +113,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 22,
     breakSpeed: 9,
     collider: 'hull',
-    targetHeight: 1.0,
+    targetHeight: 1.1,
     restitution: 0.35,
     shardCount: 10,
     heroes: 3,
@@ -122,7 +126,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 11,
     breakSpeed: 9,
     collider: 'hull',
-    targetHeight: 0.7,
+    targetHeight: 0.75,
     restitution: 0.75,
     shardCount: 4,
     heroes: 5,
@@ -135,7 +139,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 30,
     breakSpeed: 9,
     collider: 'cuboid',
-    targetHeight: 0.8,
+    targetHeight: 0.85,
     shardCount: 12,
     heroes: 4,
     wreck: 'panels',
@@ -147,7 +151,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 35,
     breakSpeed: 10,
     collider: 'cuboid',
-    targetHeight: 2.15,
+    targetHeight: 2.3,
     shardCount: 12,
     heroes: 5,
     wreck: 'planks',
@@ -163,7 +167,8 @@ function bottle(name: string): PropDef {
     mass: 1,
     breakSpeed: 5,
     collider: 'hull',
-    targetHeight: 0.38,
+    targetHeight: 0.42,
+    castShadow: false,
     shardCount: 8,
     heroes: 0,
     wreck: 'chunks',
