@@ -7,13 +7,17 @@ import { useGame } from '../state/store'
 import { WEAPONS } from './arsenal'
 import type { ThrowWeapon } from './arsenal'
 import { GrenadeMesh } from './GrenadeMesh'
-import { blastBodies, meleeSmash, radialSmash, shoveBodies } from '../systems/destruction'
+import { blastBodies, radialSmash, slam } from '../systems/destruction'
 import { emitImpact } from '../feel/impactBus'
 import { hitStop } from '../feel/timeState'
 import { triggerSwing } from './swing'
 import { triggerDash } from '../input/dash'
 import { emitDust, emitSparks } from '../vfx/Particles'
+import { emitFlash } from '../vfx/ExplosionFlash'
 import * as Audio from '../audio/AudioEngine'
+
+const SLAM_DELAY_MS = 110 // impact resolves when the viewmodel slam lands
+const GRENADE_FUSE_S = 1.6
 
 interface Shot {
   id: number
@@ -28,15 +32,34 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
   const spent = useRef(false)
   const { world } = useRapier()
   const w = shot.weapon
+
   useEffect(() => {
     ref.current?.setLinvel({ x: shot.vel[0], y: shot.vel[1], z: shot.vel[2] }, true)
-    if (w.blast) {
-      // tumble like a thrown frag
-      ref.current?.setAngvel({ x: 6 + Math.random() * 6, y: (Math.random() - 0.5) * 4, z: (Math.random() - 0.5) * 8 }, true)
+    if (!w.blast) {
+      const t = window.setTimeout(() => onExpire(shot.id), 8000)
+      return () => window.clearTimeout(t)
     }
-    const t = window.setTimeout(() => onExpire(shot.id), 8000)
-    return () => window.clearTimeout(t)
-  }, [shot, w.blast, onExpire])
+    // frag: tumble in flight, detonate on the fuse wherever it lies
+    ref.current?.setAngvel({ x: 6 + Math.random() * 6, y: (Math.random() - 0.5) * 4, z: (Math.random() - 0.5) * 8 }, true)
+    const fuse = window.setTimeout(() => {
+      if (spent.current) return
+      spent.current = true
+      const p = ref.current?.translation()
+      if (p) {
+        const at: [number, number, number] = [p.x, p.y, p.z]
+        radialSmash(at[0], at[1], at[2], w.blast ?? 5, w.blastPower ?? 10)
+        blastBodies(world, at[0], at[1], at[2], w.blast ?? 5, 3.2)
+        Audio.explosion(at)
+        emitFlash(at)
+        emitDust(at, 26, 0.7)
+        emitSparks(at, 26)
+        emitImpact(1, ...at)
+        hitStop(70)
+      }
+      onExpire(shot.id)
+    }, GRENADE_FUSE_S * 1000)
+    return () => window.clearTimeout(fuse)
+  }, [shot, w, world, onExpire])
 
   return (
     <RigidBody
@@ -45,30 +68,19 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
       position={shot.pos}
       ccd
       mass={w.mass}
-      restitution={0.25}
+      restitution={w.blast ? 0.45 : 0.25}
       onCollisionEnter={
         w.blast
-          ? ({ target }) => {
-              if (spent.current) return
-              spent.current = true
-              const p = target.rigidBody?.translation()
-              if (p) {
-                const at: [number, number, number] = [p.x, p.y, p.z]
-                radialSmash(at[0], at[1], at[2], w.blast ?? 5, w.blastPower ?? 10)
-                blastBodies(world, at[0], at[1], at[2], w.blast ?? 5, 3.2)
-                Audio.explosion(at)
-                emitDust(at, 26, 0.7)
-                emitSparks(at, 26)
-                emitImpact(1, ...at)
-                hitStop(70)
-              }
-              onExpire(shot.id)
+          ? () => {
+              // fuse cooking — just the bounce tick (globally rate-limited)
+              const p = ref.current?.translation()
+              if (p) Audio.clank('metal', 0.2, [p.x, p.y, p.z])
             }
           : undefined
       }
     >
       {w.blast ? (
-        <GrenadeMesh scale={w.radius / 0.1} />
+        <GrenadeMesh scale={w.radius / 0.1} armed fuse={GRENADE_FUSE_S} />
       ) : (
         <mesh castShadow>
           <sphereGeometry args={[w.radius, 18, 18]} />
@@ -94,34 +106,38 @@ export function WeaponSystem() {
   const weaponRef = useRef(weaponIndex)
   weaponRef.current = weaponIndex
 
+  /** The sledge impact — fired when the swing visually lands, on current aim. */
+  const resolveSlam = useCallback(
+    (range: number, power: number) => {
+      camera.getWorldDirection(fwd)
+      const r = slam(world, camera.position.x, camera.position.y, camera.position.z, fwd.x, fwd.y, fwd.z, range, power)
+      if (r.hits > 0) {
+        addRage(0.02 + r.hits * 0.02)
+        emitImpact(0.4 + Math.min(0.5, r.hits * 0.1), ...r.point)
+        hitStop(40 + Math.min(40, r.hits * 10))
+      } else {
+        // ground slam: thud + dust + shockwave, no break
+        Audio.clank('generic', 0.5, r.point)
+        emitDust(r.point, 10, 0.4)
+        emitImpact(0.22, ...r.point)
+      }
+    },
+    [camera, fwd, world, addRage],
+  )
+
   const attack = useCallback(() => {
     const now = performance.now() / 1000
     if (now < cooldownUntil.current) return
     const w = WEAPONS[weaponRef.current]
     cooldownUntil.current = now + w.cooldown
     triggerSwing()
-    camera.getWorldDirection(fwd)
     if (w.kind === 'melee') {
       if (w.dash) triggerDash(w.dash)
       Audio.whoosh(true)
-      const hits = meleeSmash(
-        camera.position.x,
-        camera.position.y,
-        camera.position.z,
-        fwd.x,
-        fwd.y,
-        fwd.z,
-        w.range,
-        w.cosArc,
-        w.power,
-      )
-      // follow-through: bat loose rubble/bottles/toys along the swing
-      shoveBodies(world, camera.position.x, camera.position.y, camera.position.z, fwd.x, fwd.y, fwd.z, w.range, w.cosArc, 0.9)
-      addRage(0.02 + hits * 0.02)
-      emitImpact(0.3 + hits * 0.12)
-      if (hits > 0) hitStop(40 + hits * 10)
+      window.setTimeout(() => resolveSlam(w.range, w.power), SLAM_DELAY_MS)
     } else {
       Audio.whoosh(w.id === 'bowling')
+      camera.getWorldDirection(fwd)
       const pos: [number, number, number] = [
         camera.position.x + fwd.x * 0.9,
         camera.position.y + fwd.y * 0.9,
@@ -132,7 +148,7 @@ export function WeaponSystem() {
       addRage(0.02)
       emitImpact(0.08)
     }
-  }, [camera, fwd, addRage, world])
+  }, [camera, fwd, addRage, resolveSlam])
 
   useEffect(() => {
     const el = gl.domElement

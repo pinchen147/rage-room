@@ -9,6 +9,7 @@ import { WeaponSystem } from './weapons/WeaponSystem'
 import { Viewmodel } from './weapons/Viewmodel'
 import { DebrisManager } from './props/Debris'
 import { ParticleSystem } from './vfx/Particles'
+import { ExplosionFlash } from './vfx/ExplosionFlash'
 import { JuiceController } from './feel/JuiceController'
 import { HitStopDriver } from './feel/HitStopDriver'
 import { AudioListenerSync } from './audio/AudioListenerSync'
@@ -47,6 +48,7 @@ export function App() {
           <Effects />
         </Suspense>
         <ParticleSystem />
+        <ExplosionFlash />
         <AudioListenerSync />
         <HitStopDriver />
         <AdaptiveDpr pixelated />

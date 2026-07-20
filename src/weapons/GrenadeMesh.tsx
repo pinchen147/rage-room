@@ -1,7 +1,26 @@
+import { useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import * as THREE from 'three'
+
 /** Procedural frag grenade: olive fragmentation body, fuze head, safety lever,
- * pin ring, and a hot red tip (HDR emissive → picked up by bloom). Shared by
- * the viewmodel and the thrown projectile so they always match. */
-export function GrenadeMesh({ scale = 1 }: { scale?: number }) {
+ * pin ring, and a red indicator. When `armed`, the indicator blinks faster and
+ * faster over the fuse time. Shared by the viewmodel and the projectile. */
+export function GrenadeMesh({ scale = 1, armed = false, fuse = 1.6 }: { scale?: number; armed?: boolean; fuse?: number }) {
+  const tip = useRef<THREE.MeshStandardMaterial>(null)
+  const born = useMemo(() => performance.now() / 1000, [])
+
+  useFrame(() => {
+    const m = tip.current
+    if (!m) return
+    if (!armed) {
+      m.emissiveIntensity = 1.2
+      return
+    }
+    const t = Math.min(1, (performance.now() / 1000 - born) / fuse)
+    const freq = 4 + t * 22 // blink accelerates toward detonation
+    m.emissiveIntensity = Math.sin(t * t * freq * Math.PI * 8) > 0 ? 5 : 0.4
+  })
+
   return (
     <group scale={scale}>
       {/* fragmentation body */}
@@ -29,10 +48,10 @@ export function GrenadeMesh({ scale = 1 }: { scale?: number }) {
         <torusGeometry args={[0.024, 0.005, 8, 16]} />
         <meshStandardMaterial color="#b8a25a" metalness={0.9} roughness={0.3} />
       </mesh>
-      {/* armed indicator — HDR so it blooms */}
+      {/* armed indicator — HDR when lit so it blooms */}
       <mesh position={[0, 0.148, 0]}>
         <sphereGeometry args={[0.011, 8, 8]} />
-        <meshStandardMaterial color="#ff3b30" emissive="#ff3b30" emissiveIntensity={3} toneMapped={false} />
+        <meshStandardMaterial ref={tip} color="#ff3b30" emissive="#ff3b30" emissiveIntensity={1.2} toneMapped={false} />
       </mesh>
     </group>
   )

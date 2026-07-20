@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
-import { InstancedRigidBodies, RigidBody } from '@react-three/rapier'
-import type { InstancedRigidBodyProps } from '@react-three/rapier'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { InstancedRigidBodies, RigidBody, useRapier } from '@react-three/rapier'
+import type { InstancedRigidBodyProps, RapierRigidBody } from '@react-three/rapier'
 import { getKit, getPhysics, getWreckGeos } from '../systems/shardKits'
 import type { WreckStyle } from '../systems/shardKits'
 import type { MaterialClass } from '../audio/sfx'
-import { useGame } from '../state/store'
 
 /** Debris spawning. Each break = one instanced swarm of small material shards
- * plus a few BIG structural wreck pieces (shelf beams, desk panels, tyre strips,
- * drum plates) with per-material physics. Debris PERSISTS — pieces stay physical
- * (kickable, blastable), sleeping when settled; only a hard batch cap retires
- * the oldest rubble, and R sweeps all. */
+ * plus a few BIG structural wreck pieces with per-material physics.
+ *
+ * Debris is PERMANENT — nothing is ever deleted or swept (not even on R).
+ * The newest LIVE_BATCHES stay fully dynamic (kickable, blastable); older
+ * rubble freezes into fixed bodies where it lies — walkable wreckage strata
+ * at zero solver cost. */
 
 export interface DebrisSpec {
   origin: readonly [number, number, number]
@@ -33,12 +34,11 @@ export function spawnDebris(spec: DebrisSpec): void {
   listener?.(spec)
 }
 
-const MAX_BATCHES = 18
+const LIVE_BATCHES = 36 // newest N stay dynamic; older rubble freezes in place
 let nextBatchId = 0
 
 // Small shards live in collision group 3 and DON'T collide with each other —
 // piles of N shards otherwise generate O(N²) contacts, the main physics cost.
-// They still collide with the world, props, player, projectiles, and wrecks.
 const SHARD_GROUPS = 0x0008fff7
 
 interface Batch extends DebrisSpec {
@@ -47,10 +47,22 @@ interface Batch extends DebrisSpec {
 
 const rand = (span: number): number => (Math.random() - 0.5) * span
 
-function ShardBatch({ batch }: { batch: Batch }) {
+/** Freeze a body where it lies (dynamic → fixed). */
+function useFreeze(frozen: boolean, bodies: () => (RapierRigidBody | null)[]) {
+  const { rapier } = useRapier()
+  useEffect(() => {
+    if (!frozen) return
+    for (const b of bodies()) b?.setBodyType(rapier.RigidBodyType.Fixed, false)
+  }, [frozen, rapier, bodies])
+}
+
+function ShardBatch({ batch, frozen }: { batch: Batch; frozen: boolean }) {
   const kit = getKit(batch.material)
   const phys = getPhysics(batch.material)
   const geo = useMemo(() => kit.geos[batch.id % kit.geos.length], [kit, batch.id])
+  const bodies = useRef<(RapierRigidBody | null)[]>(null)
+
+  useFreeze(frozen, () => bodies.current ?? [])
 
   const instances = useMemo<InstancedRigidBodyProps[]>(() => {
     const { origin, bias, count, shardScale, spread } = batch
@@ -69,6 +81,7 @@ function ShardBatch({ batch }: { batch: Batch }) {
 
   return (
     <InstancedRigidBodies
+      ref={bodies}
       instances={instances}
       colliders="cuboid"
       collisionGroups={SHARD_GROUPS}
@@ -83,17 +96,21 @@ function ShardBatch({ batch }: { batch: Batch }) {
   )
 }
 
-/** One big wreck piece: a shelf beam, desk panel, tyre strip, drum plate…
- * Individual body (interpolated, casts shadow) with material physics. */
-function WreckPiece({ batch, index }: { batch: Batch; index: number }) {
+/** One big wreck piece: a shelf beam, desk panel, tyre strip, drum plate… */
+function WreckPiece({ batch, index, frozen }: { batch: Batch; index: number; frozen: boolean }) {
   const kit = getKit(batch.material)
   const phys = getPhysics(batch.material)
   const geos = getWreckGeos(batch.wreck)
   const geo = geos[(batch.id + index) % geos.length]
-  const s = batch.wreckScale * (0.85 + Math.random() * 0.3)
+  const body = useRef<RapierRigidBody>(null)
+  const s = useMemo(() => batch.wreckScale * (0.85 + Math.random() * 0.3), [batch.wreckScale])
   const { origin, bias } = batch
+
+  useFreeze(frozen, () => [body.current])
+
   return (
     <RigidBody
+      ref={body}
       colliders="cuboid"
       position={[origin[0] + rand(batch.spread), origin[1] + 0.12 + index * 0.06, origin[2] + rand(batch.spread)]}
       rotation={[Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI]}
@@ -105,7 +122,7 @@ function WreckPiece({ batch, index }: { batch: Batch; index: number }) {
       angularDamping={phys.angularDamping}
       gravityScale={phys.gravityScale}
     >
-      {/* no castShadow: 100+ wreck shadow casters double the depth pass; AO grounds them */}
+      {/* no castShadow: AO grounds rubble; shadow casters are budgeted */}
       <mesh geometry={geo} material={kit.mat} scale={s} />
     </RigidBody>
   )
@@ -113,30 +130,23 @@ function WreckPiece({ batch, index }: { batch: Batch; index: number }) {
 
 export function DebrisManager() {
   const [batches, setBatches] = useState<Batch[]>([])
-  const roomKey = useGame((s) => s.roomKey)
 
   useEffect(() => {
-    listener = (spec) => {
-      const batch: Batch = { ...spec, id: nextBatchId++ }
-      setBatches((prev) => [...prev.slice(-(MAX_BATCHES - 1)), batch])
-    }
+    listener = (spec) => setBatches((prev) => [...prev, { ...spec, id: nextBatchId++ }])
     return () => {
       listener = null
     }
   }, [])
 
-  // R = fresh room: sweep the rubble with the respawn.
-  useEffect(() => {
-    setBatches([])
-  }, [roomKey])
+  const firstLive = Math.max(0, batches.length - LIVE_BATCHES)
 
   return (
     <>
-      {batches.map((b) => (
+      {batches.map((b, i) => (
         <group key={b.id}>
-          {b.count > 0 && <ShardBatch batch={b} />}
-          {Array.from({ length: b.heroes }, (_, i) => (
-            <WreckPiece key={i} batch={b} index={i} />
+          {b.count > 0 && <ShardBatch batch={b} frozen={i < firstLive} />}
+          {Array.from({ length: b.heroes }, (_, j) => (
+            <WreckPiece key={j} batch={b} index={j} frozen={i < firstLive} />
           ))}
         </group>
       ))}

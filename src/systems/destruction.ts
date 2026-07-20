@@ -22,9 +22,16 @@ export function registerBreakable(b: Breakable): () => void {
   return () => registry.delete(b)
 }
 
-/** Smash every intact breakable within `range` and within `cosArc` of `dir`
- * (dir normalized). Shards launch along dir * power. Returns hit count. */
-export function meleeSmash(
+export interface SlamResult {
+  hits: number
+  point: [number, number, number]
+}
+
+/** Sledgehammer slam: break the breakable you're AIMING at (nearest in a tight
+ * cone), splash-break its immediate neighbours, and shock loose rubble at the
+ * impact point. Whiffs slam through to a point in front of you (ground thud). */
+export function slam(
+  world: PhysicsWorld,
   ox: number,
   oy: number,
   oz: number,
@@ -32,10 +39,10 @@ export function meleeSmash(
   dy: number,
   dz: number,
   range: number,
-  cosArc: number,
   power: number,
-): number {
-  let hits = 0
+): SlamResult {
+  let target: Breakable | null = null
+  let targetDist = Infinity
   for (const b of registry) {
     if (!b.alive()) continue
     const p = b.position()
@@ -45,11 +52,30 @@ export function meleeSmash(
     const vz = p.z - oz
     const dist = Math.hypot(vx, vy, vz)
     if (dist > range || dist < 1e-3) continue
-    if ((vx * dx + vy * dy + vz * dz) / dist < cosArc) continue
-    b.break(dx * power, dy * power + 1.5, dz * power)
-    hits++
+    if ((vx * dx + vy * dy + vz * dz) / dist < 0.82) continue // tight aim cone
+    if (dist < targetDist) {
+      target = b
+      targetDist = dist
+    }
   }
-  return hits
+
+  if (target) {
+    const p = target.position()!
+    const point: [number, number, number] = [p.x, p.y, p.z]
+    target.break(dx * power, 2, dz * power)
+    const splash = radialSmash(point[0], point[1], point[2], 1.5, power * 0.5)
+    blastBodies(world, point[0], point[1], point[2], 1.8, 0.6)
+    return { hits: 1 + splash, point }
+  }
+
+  // whiff: slam through to the floor in front
+  const point: [number, number, number] = [
+    ox + dx * range * 0.7,
+    Math.max(0.06, oy + dy * range * 0.7),
+    oz + dz * range * 0.7,
+  ]
+  blastBodies(world, point[0], point[1], point[2], 1.6, 0.5)
+  return { hits: 0, point }
 }
 
 /** Explosion shockwave: kick every dynamic body (debris, toys, projectiles)
@@ -66,34 +92,6 @@ export function blastBodies(world: PhysicsWorld, cx: number, cy: number, cz: num
     if (dist > radius || dist < 1e-3) return
     const k = strength * (1 - dist / radius) * body.mass()
     body.applyImpulse({ x: (dx / dist) * k, y: (dy / dist + 0.7) * k, z: (dz / dist) * k }, true)
-  })
-}
-
-/** Melee follow-through: shove loose dynamic bodies (debris, bottles, toys) in
- * the swing cone so the sledge bats rubble around instead of ghosting through. */
-export function shoveBodies(
-  world: PhysicsWorld,
-  ox: number,
-  oy: number,
-  oz: number,
-  dx: number,
-  dy: number,
-  dz: number,
-  range: number,
-  cosArc: number,
-  strength: number,
-): void {
-  world.forEachRigidBody((body) => {
-    if (!body.isDynamic()) return
-    const t = body.translation()
-    const vx = t.x - ox
-    const vy = t.y - oy
-    const vz = t.z - oz
-    const dist = Math.hypot(vx, vy, vz)
-    if (dist > range || dist < 1e-3) return
-    if ((vx * dx + vy * dy + vz * dz) / dist < cosArc) return
-    const k = strength * (1 - (dist / range) * 0.6) * body.mass()
-    body.applyImpulse({ x: dx * k, y: (dy + 0.35) * k, z: dz * k }, true)
   })
 }
 
