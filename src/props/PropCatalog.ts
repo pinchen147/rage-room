@@ -12,7 +12,9 @@ export interface PropDef {
   collider: 'cuboid' | 'hull'
   /** Physics body type: breakables + toys are dynamic, anchors are fixed. */
   fixed?: boolean
-  scale?: number
+  /** Real-world height in metres — the model is measured and normalized to this
+   * at load (source GLTFs use inconsistent units; the shelves are 21m raw). */
+  targetHeight: number
   restitution?: number
   shardCount: number
   heroes: number
@@ -28,7 +30,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 14,
     breakSpeed: 7,
     collider: 'cuboid',
-    scale: 1.35,
+    targetHeight: 0.55,
     shardCount: 16,
     heroes: 3,
   },
@@ -43,7 +45,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 2,
     breakSpeed: 5.5,
     collider: 'hull',
-    scale: 1.15,
+    targetHeight: 0.42,
     shardCount: 10,
     heroes: 1,
   },
@@ -54,6 +56,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 5,
     breakSpeed: 8,
     collider: 'hull',
+    targetHeight: 0.86,
     shardCount: 11,
     heroes: 2,
   },
@@ -64,6 +67,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 2,
     breakSpeed: 6,
     collider: 'cuboid',
+    targetHeight: 0.42,
     shardCount: 9,
     heroes: 1,
   },
@@ -74,6 +78,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 7,
     breakSpeed: 7.5,
     collider: 'cuboid',
+    targetHeight: 0.45,
     shardCount: 13,
     heroes: 2,
   },
@@ -84,6 +89,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 22,
     breakSpeed: Infinity,
     collider: 'hull',
+    targetHeight: 0.9,
     restitution: 0.35,
     shardCount: 0,
     heroes: 0,
@@ -95,6 +101,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 11,
     breakSpeed: Infinity,
     collider: 'hull',
+    targetHeight: 0.62,
     restitution: 0.75,
     shardCount: 0,
     heroes: 0,
@@ -107,6 +114,7 @@ export const CATALOG: Record<string, PropDef> = {
     breakSpeed: Infinity,
     collider: 'cuboid',
     fixed: true,
+    targetHeight: 0.75,
     shardCount: 0,
     heroes: 0,
   },
@@ -118,6 +126,7 @@ export const CATALOG: Record<string, PropDef> = {
     breakSpeed: Infinity,
     collider: 'cuboid',
     fixed: true,
+    targetHeight: 2.0,
     shardCount: 0,
     heroes: 0,
   },
@@ -132,6 +141,7 @@ function bottle(name: string): PropDef {
     mass: 1,
     breakSpeed: 5,
     collider: 'hull',
+    targetHeight: 0.32,
     shardCount: 8,
     heroes: 0,
   }

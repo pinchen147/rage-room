@@ -30,36 +30,32 @@ export function SmashableProp({ def, position, rotationY = 0 }: Props) {
   const readyRef = useRef(false)
   const [broken, setBroken] = useState(false)
 
-  const object = useMemo(() => {
+  // Source GLTFs use inconsistent units (the shelves are 21m raw). Measure the
+  // clone and normalize to the catalog's real-world targetHeight, re-origined
+  // to xz-center with the base at y=0 so layout positions are exact.
+  const { object, offset, factor } = useMemo(() => {
     const source = def.node ? (gltf.nodes[def.node] as THREE.Object3D | undefined) : gltf.scene
     if (!source) throw new Error(`Prop node not found: ${def.file} → ${def.node ?? '<scene>'}`)
     const clone = source.clone(true)
     clone.position.set(0, 0, 0)
-    if (def.node && clone instanceof THREE.Mesh) {
-      // Node meshes carry the set's staged layout baked into the geometry.
-      // Re-origin once (shared geometry, idempotent): xz-centered, base at y=0.
-      const geo = clone.geometry
-      if (!geo.userData.reoriented) {
-        geo.userData.reoriented = true
-        geo.computeBoundingBox()
-        const bb = geo.boundingBox!
-        geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2)
-      }
-    }
     clone.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.castShadow = true
         o.receiveShadow = true
       }
     })
-    return clone
+    const box = new THREE.Box3().setFromObject(clone)
+    const height = box.max.y - box.min.y
+    const f = def.targetHeight / (height > 1e-6 ? height : 1)
+    const off: [number, number, number] = [
+      (-(box.min.x + box.max.x) / 2) * f,
+      -box.min.y * f,
+      (-(box.min.z + box.max.z) / 2) * f,
+    ]
+    return { object: clone, offset: off, factor: f }
   }, [gltf, def])
 
-  const size = useMemo(() => {
-    const box = new THREE.Box3().setFromObject(object)
-    const v = box.getSize(new THREE.Vector3())
-    return Math.max(v.x, v.y, v.z) * (def.scale ?? 1)
-  }, [object, def.scale])
+  const size = def.targetHeight
 
   const breakable = Number.isFinite(def.breakSpeed)
 
@@ -138,7 +134,9 @@ export function SmashableProp({ def, position, rotationY = 0 }: Props) {
         }
       }}
     >
-      <primitive object={object} scale={def.scale ?? 1} />
+      <group position={offset} scale={factor}>
+        <primitive object={object} />
+      </group>
     </RigidBody>
   )
 }
