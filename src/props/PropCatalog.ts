@@ -1,4 +1,13 @@
 import type { MaterialClass } from '../audio/sfx'
+import type { WreckStyle } from '../systems/shardKits'
+
+/** One debris stream of a break (multi-material props spawn several). */
+export interface DebrisPart {
+  material: MaterialClass
+  wreck: WreckStyle
+  count: number
+  heroes: number
+}
 
 export interface PropDef {
   id: string
@@ -16,6 +25,10 @@ export interface PropDef {
   restitution?: number
   shardCount: number
   heroes: number
+  /** Big structural piece style (shelf beams vs desk panels vs tyre strips). */
+  wreck: WreckStyle
+  /** Multi-material breakup (e.g. TV = glass screen + plastic shell). */
+  debrisMix?: DebrisPart[]
 }
 
 const M = '/assets/models'
@@ -31,6 +44,11 @@ export const CATALOG: Record<string, PropDef> = {
     targetHeight: 0.7,
     shardCount: 16,
     heroes: 3,
+    wreck: 'panels',
+    debrisMix: [
+      { material: 'glass', wreck: 'chunks', count: 10, heroes: 0 },
+      { material: 'plastic', wreck: 'panels', count: 6, heroes: 3 },
+    ],
   },
   bottle_bordeaux: bottle('bordeaux'),
   bottle_alsace: bottle('alsace'),
@@ -46,6 +64,7 @@ export const CATALOG: Record<string, PropDef> = {
     targetHeight: 0.52,
     shardCount: 10,
     heroes: 1,
+    wreck: 'chunks',
   },
   chair: {
     id: 'chair',
@@ -57,6 +76,7 @@ export const CATALOG: Record<string, PropDef> = {
     targetHeight: 0.95,
     shardCount: 11,
     heroes: 2,
+    wreck: 'panels',
   },
   cardboard: {
     id: 'cardboard',
@@ -66,8 +86,9 @@ export const CATALOG: Record<string, PropDef> = {
     breakSpeed: 6,
     collider: 'cuboid',
     targetHeight: 0.55,
-    shardCount: 9,
-    heroes: 1,
+    shardCount: 8,
+    heroes: 2,
+    wreck: 'panels',
   },
   crate: {
     id: 'crate',
@@ -77,8 +98,9 @@ export const CATALOG: Record<string, PropDef> = {
     breakSpeed: 7.5,
     collider: 'cuboid',
     targetHeight: 0.55,
-    shardCount: 13,
-    heroes: 2,
+    shardCount: 11,
+    heroes: 3,
+    wreck: 'planks',
   },
   barrel: {
     id: 'barrel',
@@ -89,20 +111,22 @@ export const CATALOG: Record<string, PropDef> = {
     collider: 'hull',
     targetHeight: 1.0,
     restitution: 0.35,
-    shardCount: 14,
-    heroes: 2,
+    shardCount: 10,
+    heroes: 3,
+    wreck: 'arcs',
   },
   tyre: {
     id: 'tyre',
     file: `${M}/old_tyre/old_tyre_1k.gltf`,
-    material: 'generic',
+    material: 'rubber',
     mass: 11,
     breakSpeed: 9,
     collider: 'hull',
     targetHeight: 0.7,
     restitution: 0.75,
-    shardCount: 10,
-    heroes: 2,
+    shardCount: 4,
+    heroes: 5,
+    wreck: 'arcs',
   },
   desk: {
     id: 'desk',
@@ -112,8 +136,9 @@ export const CATALOG: Record<string, PropDef> = {
     breakSpeed: 9,
     collider: 'cuboid',
     targetHeight: 0.8,
-    shardCount: 16,
-    heroes: 3,
+    shardCount: 12,
+    heroes: 4,
+    wreck: 'panels',
   },
   shelves: {
     id: 'shelves',
@@ -123,8 +148,9 @@ export const CATALOG: Record<string, PropDef> = {
     breakSpeed: 10,
     collider: 'cuboid',
     targetHeight: 2.15,
-    shardCount: 18,
-    heroes: 3,
+    shardCount: 12,
+    heroes: 5,
+    wreck: 'planks',
   },
 }
 
@@ -140,6 +166,7 @@ function bottle(name: string): PropDef {
     targetHeight: 0.38,
     shardCount: 8,
     heroes: 0,
+    wreck: 'chunks',
   }
 }
 

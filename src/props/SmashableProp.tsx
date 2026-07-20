@@ -3,7 +3,8 @@ import { useGLTF } from '@react-three/drei'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
-import type { PropDef } from './PropCatalog'
+import type { DebrisPart, PropDef } from './PropCatalog'
+import { smallUnitVolume, wreckUnitVolume } from '../systems/shardKits'
 import { useGame } from '../state/store'
 import { registerBreakable } from '../systems/destruction'
 import { emitImpact } from '../feel/impactBus'
@@ -33,7 +34,7 @@ export function SmashableProp({ def, position, rotationY = 0 }: Props) {
   // Source GLTFs use inconsistent units (the shelves are 21m raw). Measure the
   // clone and normalize to the catalog's real-world targetHeight, re-origined
   // to xz-center with the base at y=0 so layout positions are exact.
-  const { object, offset, factor } = useMemo(() => {
+  const { object, offset, factor, dims } = useMemo(() => {
     const source = def.node ? (gltf.nodes[def.node] as THREE.Object3D | undefined) : gltf.scene
     if (!source) throw new Error(`Prop node not found: ${def.file} → ${def.node ?? '<scene>'}`)
     const clone = source.clone(true)
@@ -52,7 +53,13 @@ export function SmashableProp({ def, position, rotationY = 0 }: Props) {
       -box.min.y * f,
       (-(box.min.z + box.max.z) / 2) * f,
     ]
-    return { object: clone, offset: off, factor: f }
+    // real-world dimensions after normalization — drives debris volume
+    const d: [number, number, number] = [
+      (box.max.x - box.min.x) * f,
+      def.targetHeight,
+      (box.max.z - box.min.z) * f,
+    ]
+    return { object: clone, offset: off, factor: f, dims: d }
   }, [gltf, def])
 
   const size = def.targetHeight
@@ -71,14 +78,39 @@ export function SmashableProp({ def, position, rotationY = 0 }: Props) {
     addRage(0.05 + energy * 0.07)
     emitImpact(energy, ...origin)
     Audio.smash(def.material, energy, origin)
-    spawnDebris({
-      origin,
-      bias: [bx, by, bz],
-      material: def.material,
-      count: def.shardCount,
-      scale: Math.min(0.55, Math.max(0.1, size * 0.24)),
-      heroes: def.heroes,
-    })
+
+    // Conservation of mass: solve debris scales so total rubble volume ≈ the
+    // prop's volume (bounding box × solidity), split across debris parts.
+    const propVolume = dims[0] * dims[1] * dims[2] * 0.5
+    const spread = Math.max(0.15, Math.max(dims[0], dims[2]) * 0.45)
+    const parts: DebrisPart[] =
+      def.debrisMix ?? [{ material: def.material, wreck: def.wreck, count: def.shardCount, heroes: def.heroes }]
+    const totalWeight = parts.reduce((sum, p) => sum + p.count + p.heroes * 4, 0)
+    for (const part of parts) {
+      const vPart = propVolume * ((part.count + part.heroes * 4) / Math.max(1, totalWeight))
+      const vSmall = part.heroes > 0 ? vPart * 0.45 : vPart
+      const vBig = vPart - vSmall
+      const shardScale =
+        part.count > 0
+          ? THREE.MathUtils.clamp(Math.cbrt(vSmall / (part.count * smallUnitVolume(part.material) * 0.92)), 0.06, 0.8)
+          : 0
+      const wreckScale =
+        part.heroes > 0
+          ? THREE.MathUtils.clamp(Math.cbrt(vBig / (part.heroes * wreckUnitVolume(part.wreck))), 0.3, 3.2)
+          : 0
+      spawnDebris({
+        origin,
+        bias: [bx, by, bz],
+        material: part.material,
+        count: part.count,
+        heroes: part.heroes,
+        wreck: part.wreck,
+        shardScale,
+        wreckScale,
+        spread,
+      })
+    }
+
     emitDust(origin, 8 + Math.round(energy * 14), 0.25 + size * 0.12)
     if (def.material === 'glass' || def.material === 'metal') emitSparks(origin, 8)
     if (energy > 0.45) hitStop(30 + energy * 45)

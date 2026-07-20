@@ -1,5 +1,5 @@
 /** Material classes drive break thresholds, debris looks, and audio layering. */
-export type MaterialClass = 'glass' | 'wood' | 'metal' | 'ceramic' | 'plastic' | 'cardboard' | 'generic'
+export type MaterialClass = 'glass' | 'wood' | 'metal' | 'ceramic' | 'plastic' | 'cardboard' | 'rubber' | 'generic'
 
 export type Tier = 'heavy' | 'medium' | 'light'
 
@@ -97,6 +97,11 @@ export const SMASH: Record<MaterialClass, SmashRecipe> = {
     tail: 'gen_fall',
   },
   cardboard: {
+    transient: { heavy: 'soft_heavy', medium: 'soft_medium', light: 'generic_light' },
+    body: 'misc',
+    tail: 'gen_fall',
+  },
+  rubber: {
     transient: { heavy: 'soft_heavy', medium: 'soft_medium', light: 'generic_light' },
     body: 'misc',
     tail: 'gen_fall',
