@@ -150,7 +150,7 @@ export function PlayerController() {
       dashRef.current = 0
     }
 
-    vVel.current += GRAVITY * dt
+    vVel.current = Math.max(-18, Math.min(16, vVel.current + GRAVITY * dt))
     const collider = rb.collider(0)
     controller.computeColliderMovement(collider, { x: move.x, y: vVel.current * dt, z: move.z })
     const grounded = controller.computedGrounded()

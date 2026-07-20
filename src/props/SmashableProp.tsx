@@ -96,7 +96,7 @@ export function SmashableProp({ def, position, rotationY = 0, rotationX = 0 }: P
       const vBig = vPart - vSmall
       const shardScale =
         part.count > 0
-          ? THREE.MathUtils.clamp(Math.cbrt(vSmall / (part.count * smallUnitVolume(part.material) * 0.92)), 0.06, 0.8)
+          ? THREE.MathUtils.clamp(Math.cbrt(vSmall / (part.count * smallUnitVolume(part.material) * 0.92)), 0.09, 0.8)
           : 0
       const wreckScale =
         part.heroes > 0

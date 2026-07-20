@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useThree } from '@react-three/fiber'
-import { RigidBody, useRapier } from '@react-three/rapier'
+import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { useGame } from '../state/store'
@@ -8,6 +8,7 @@ import { WEAPONS } from './arsenal'
 import type { ThrowWeapon } from './arsenal'
 import { GrenadeMesh } from './GrenadeMesh'
 import { blastBodies, radialSmash, slam } from '../systems/destruction'
+import { enqueuePhysicsOp } from '../systems/physicsQueue'
 import { emitImpact } from '../feel/impactBus'
 import { hitStop } from '../feel/timeState'
 import { triggerSwing } from './swing'
@@ -30,7 +31,6 @@ let nextId = 0
 const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; onExpire: (id: number) => void }) {
   const ref = useRef<RapierRigidBody>(null)
   const spent = useRef(false)
-  const { world } = useRapier()
   const w = shot.weapon
 
   const detonate = () => {
@@ -40,18 +40,17 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
     onExpire(shot.id)
     if (!p) return
     const at: [number, number, number] = [p.x, p.y, p.z]
-    // Deferred out of the collision callback: mutating the world (breaks,
-    // impulses) inside Rapier's event drain can panic the WASM ("aliasing").
-    window.setTimeout(() => {
+    // World mutations run at the safe pre-step point, never in this callback.
+    enqueuePhysicsOp((w2) => {
       radialSmash(at[0], at[1], at[2], w.blast ?? 5, w.blastPower ?? 10)
-      blastBodies(world, at[0], at[1], at[2], w.blast ?? 5, 3.2)
+      blastBodies(w2, at[0], at[1], at[2], w.blast ?? 5, 3.2)
       Audio.explosion(at)
       emitFlash(at)
       emitDust(at, 18, 0.7)
       emitSparks(at, 18)
       emitImpact(1, ...at)
       hitStop(70)
-    }, 0)
+    })
   }
   const detonateRef = useRef(detonate)
   detonateRef.current = detonate
@@ -93,7 +92,6 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
 export function WeaponSystem() {
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
-  const { world } = useRapier()
   const weaponIndex = useGame((s) => s.weaponIndex)
   const setWeapon = useGame((s) => s.setWeapon)
   const cycleWeapon = useGame((s) => s.cycleWeapon)
@@ -105,23 +103,26 @@ export function WeaponSystem() {
   const weaponRef = useRef(weaponIndex)
   weaponRef.current = weaponIndex
 
-  /** The sledge impact — fired when the swing visually lands, on current aim. */
+  /** The sledge impact — resolves at the pre-step safe point after the swing
+   * visually lands, on the aim at that moment. */
   const resolveSlam = useCallback(
     (range: number, power: number) => {
-      camera.getWorldDirection(fwd)
-      const r = slam(world, camera.position.x, camera.position.y, camera.position.z, fwd.x, fwd.y, fwd.z, range, power)
-      if (r.hits > 0) {
-        addRage(0.02 + r.hits * 0.02)
-        emitImpact(0.4 + Math.min(0.5, r.hits * 0.1), ...r.point)
-        hitStop(40 + Math.min(40, r.hits * 10))
-      } else {
-        // ground slam: thud + dust + shockwave, no break
-        Audio.clank('generic', 0.5, r.point)
-        emitDust(r.point, 10, 0.4)
-        emitImpact(0.22, ...r.point)
-      }
+      enqueuePhysicsOp((w2) => {
+        camera.getWorldDirection(fwd)
+        const r = slam(w2, camera.position.x, camera.position.y, camera.position.z, fwd.x, fwd.y, fwd.z, range, power)
+        if (r.hits > 0) {
+          addRage(0.02 + r.hits * 0.02)
+          emitImpact(0.4 + Math.min(0.5, r.hits * 0.1), ...r.point)
+          hitStop(40 + Math.min(40, r.hits * 10))
+        } else {
+          // ground slam: thud + dust + shockwave, no break
+          Audio.clank('generic', 0.5, r.point)
+          emitDust(r.point, 10, 0.4)
+          emitImpact(0.22, ...r.point)
+        }
+      })
     },
-    [camera, fwd, world, addRage],
+    [camera, fwd, addRage],
   )
 
   const attack = useCallback(() => {

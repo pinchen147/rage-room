@@ -8,6 +8,7 @@ import { Dressing } from './scene/Dressing'
 import { WeaponSystem } from './weapons/WeaponSystem'
 import { Viewmodel } from './weapons/Viewmodel'
 import { DebrisManager } from './props/Debris'
+import { PhysicsQueue } from './systems/physicsQueue'
 import { ParticleSystem } from './vfx/Particles'
 import { ExplosionFlash } from './vfx/ExplosionFlash'
 import { JuiceController } from './feel/JuiceController'
@@ -41,6 +42,7 @@ export function App() {
           <Environment files="/assets/hdri/abandoned_garage_1k.hdr" />
           {/* physics steps first (priority -100); all camera/FX code runs after at 0 */}
           <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60} paused={frozen} updatePriority={-100}>
+            <PhysicsQueue />
             <Room />
             <PlayerController />
             <Dressing />
