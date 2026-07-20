@@ -1,12 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useThree } from '@react-three/fiber'
-import { RigidBody } from '@react-three/rapier'
+import { RigidBody, useRapier } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { useGame } from '../state/store'
 import { WEAPONS } from './arsenal'
 import type { ThrowWeapon } from './arsenal'
-import { meleeSmash, radialSmash } from '../systems/destruction'
+import { GrenadeMesh } from './GrenadeMesh'
+import { blastBodies, meleeSmash, radialSmash, shoveBodies } from '../systems/destruction'
 import { emitImpact } from '../feel/impactBus'
 import { hitStop } from '../feel/timeState'
 import { triggerSwing } from './swing'
@@ -25,12 +26,17 @@ let nextId = 0
 const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; onExpire: (id: number) => void }) {
   const ref = useRef<RapierRigidBody>(null)
   const spent = useRef(false)
+  const { world } = useRapier()
   const w = shot.weapon
   useEffect(() => {
     ref.current?.setLinvel({ x: shot.vel[0], y: shot.vel[1], z: shot.vel[2] }, true)
+    if (w.blast) {
+      // tumble like a thrown frag
+      ref.current?.setAngvel({ x: 6 + Math.random() * 6, y: (Math.random() - 0.5) * 4, z: (Math.random() - 0.5) * 8 }, true)
+    }
     const t = window.setTimeout(() => onExpire(shot.id), 8000)
     return () => window.clearTimeout(t)
-  }, [shot, onExpire])
+  }, [shot, w.blast, onExpire])
 
   return (
     <RigidBody
@@ -49,6 +55,7 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
               if (p) {
                 const at: [number, number, number] = [p.x, p.y, p.z]
                 radialSmash(at[0], at[1], at[2], w.blast ?? 5, w.blastPower ?? 10)
+                blastBodies(world, at[0], at[1], at[2], w.blast ?? 5, 3.2)
                 Audio.explosion(at)
                 emitDust(at, 26, 0.7)
                 emitSparks(at, 26)
@@ -60,16 +67,14 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
           : undefined
       }
     >
-      <mesh castShadow>
-        <sphereGeometry args={[w.radius, 18, 18]} />
-        <meshStandardMaterial
-          color={w.color}
-          metalness={w.metal}
-          roughness={0.35}
-          emissive={w.blast ? '#39ff6a' : '#000000'}
-          emissiveIntensity={w.blast ? 2.2 : 0}
-        />
-      </mesh>
+      {w.blast ? (
+        <GrenadeMesh scale={w.radius / 0.1} />
+      ) : (
+        <mesh castShadow>
+          <sphereGeometry args={[w.radius, 18, 18]} />
+          <meshStandardMaterial color={w.color} metalness={w.metal} roughness={0.35} />
+        </mesh>
+      )}
     </RigidBody>
   )
 })
@@ -77,6 +82,7 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
 export function WeaponSystem() {
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
+  const { world } = useRapier()
   const weaponIndex = useGame((s) => s.weaponIndex)
   const setWeapon = useGame((s) => s.setWeapon)
   const cycleWeapon = useGame((s) => s.cycleWeapon)
@@ -109,6 +115,8 @@ export function WeaponSystem() {
         w.cosArc,
         w.power,
       )
+      // follow-through: bat loose rubble/bottles/toys along the swing
+      shoveBodies(world, camera.position.x, camera.position.y, camera.position.z, fwd.x, fwd.y, fwd.z, w.range, w.cosArc, 0.9)
       addRage(0.02 + hits * 0.02)
       emitImpact(0.3 + hits * 0.12)
       if (hits > 0) hitStop(40 + hits * 10)
@@ -124,7 +132,7 @@ export function WeaponSystem() {
       addRage(0.02)
       emitImpact(0.08)
     }
-  }, [camera, fwd, addRage])
+  }, [camera, fwd, addRage, world])
 
   useEffect(() => {
     const el = gl.domElement

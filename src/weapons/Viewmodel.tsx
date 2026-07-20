@@ -4,6 +4,7 @@ import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { useGame } from '../state/store'
 import { WEAPONS } from './arsenal'
+import { GrenadeMesh } from './GrenadeMesh'
 import { onSwing } from './swing'
 import { playerMotion } from '../input/PlayerController'
 
@@ -103,16 +104,14 @@ export function Viewmodel() {
             <meshStandardMaterial {...metalTex} metalness={1} roughness={1} />
           </mesh>
         </>
+      ) : w.blast ? (
+        <group position={[0, -0.05, 0]} rotation={[0.3, 0.4, 0]}>
+          <GrenadeMesh scale={1.4} />
+        </group>
       ) : (
         <mesh position={[0, -0.05, 0]}>
           <sphereGeometry args={[w.radius, 18, 18]} />
-          <meshStandardMaterial
-            color={w.color}
-            metalness={w.metal}
-            roughness={0.35}
-            emissive={w.blast ? '#39ff6a' : '#000000'}
-            emissiveIntensity={w.blast ? 2.2 : 0}
-          />
+          <meshStandardMaterial color={w.color} metalness={w.metal} roughness={0.35} />
         </mesh>
       )}
     </group>

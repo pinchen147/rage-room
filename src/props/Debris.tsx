@@ -3,10 +3,12 @@ import { InstancedRigidBodies, RigidBody } from '@react-three/rapier'
 import type { InstancedRigidBodyProps } from '@react-three/rapier'
 import { getKit } from '../systems/shardKits'
 import type { MaterialClass } from '../audio/sfx'
+import { useGame } from '../state/store'
 
 /** Debris spawning: one InstancedRigidBodies batch per break (cheap swarm) plus
- * a couple of individual "hero" chunks (interpolated, cast shadows). Batches
- * retire on a TTL under a hard cap so a long session never accumulates cost. */
+ * a couple of individual "hero" chunks (interpolated, cast shadows). Debris
+ * PERSISTS — pieces stay physical (kickable, blastable) and simply sleep when
+ * settled; only a hard batch cap retires the oldest rubble, and R sweeps all. */
 
 export interface DebrisSpec {
   origin: readonly [number, number, number]
@@ -24,8 +26,7 @@ export function spawnDebris(spec: DebrisSpec): void {
   listener?.(spec)
 }
 
-const BATCH_TTL_MS = 8000
-const MAX_BATCHES = 12
+const MAX_BATCHES = 30 // ~360 shard bodies worst case — inside the desktop budget
 let nextBatchId = 0
 
 interface Batch extends DebrisSpec {
@@ -92,19 +93,22 @@ function HeroChunk({ batch, index }: { batch: Batch; index: number }) {
 
 export function DebrisManager() {
   const [batches, setBatches] = useState<Batch[]>([])
+  const roomKey = useGame((s) => s.roomKey)
 
   useEffect(() => {
     listener = (spec) => {
       const batch: Batch = { ...spec, id: nextBatchId++ }
       setBatches((prev) => [...prev.slice(-(MAX_BATCHES - 1)), batch])
-      window.setTimeout(() => {
-        setBatches((prev) => prev.filter((b) => b.id !== batch.id))
-      }, BATCH_TTL_MS)
     }
     return () => {
       listener = null
     }
   }, [])
+
+  // R = fresh room: sweep the rubble with the respawn.
+  useEffect(() => {
+    setBatches([])
+  }, [roomKey])
 
   return (
     <>

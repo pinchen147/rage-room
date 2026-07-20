@@ -1,4 +1,6 @@
-import type { RapierRigidBody } from '@react-three/rapier'
+import type { RapierContext, RapierRigidBody } from '@react-three/rapier'
+
+type PhysicsWorld = RapierContext['world']
 
 /** A prop that can be smashed. Registered while intact so melee swings and
  * explosions can find it without a Rapier shape-query (version-stable + predictable). */
@@ -48,6 +50,51 @@ export function meleeSmash(
     hits++
   }
   return hits
+}
+
+/** Explosion shockwave: kick every dynamic body (debris, toys, projectiles)
+ * radially away from the blast. Impulse scales with mass so everything gets a
+ * comparable velocity kick, with distance falloff and an upward bias. */
+export function blastBodies(world: PhysicsWorld, cx: number, cy: number, cz: number, radius: number, strength: number): void {
+  world.forEachRigidBody((body) => {
+    if (!body.isDynamic()) return
+    const t = body.translation()
+    const dx = t.x - cx
+    const dy = t.y - cy
+    const dz = t.z - cz
+    const dist = Math.hypot(dx, dy, dz)
+    if (dist > radius || dist < 1e-3) return
+    const k = strength * (1 - dist / radius) * body.mass()
+    body.applyImpulse({ x: (dx / dist) * k, y: (dy / dist + 0.7) * k, z: (dz / dist) * k }, true)
+  })
+}
+
+/** Melee follow-through: shove loose dynamic bodies (debris, bottles, toys) in
+ * the swing cone so the sledge bats rubble around instead of ghosting through. */
+export function shoveBodies(
+  world: PhysicsWorld,
+  ox: number,
+  oy: number,
+  oz: number,
+  dx: number,
+  dy: number,
+  dz: number,
+  range: number,
+  cosArc: number,
+  strength: number,
+): void {
+  world.forEachRigidBody((body) => {
+    if (!body.isDynamic()) return
+    const t = body.translation()
+    const vx = t.x - ox
+    const vy = t.y - oy
+    const vz = t.z - oz
+    const dist = Math.hypot(vx, vy, vz)
+    if (dist > range || dist < 1e-3) return
+    if ((vx * dx + vy * dy + vz * dz) / dist < cosArc) return
+    const k = strength * (1 - (dist / range) * 0.6) * body.mass()
+    body.applyImpulse({ x: dx * k, y: (dy + 0.35) * k, z: dz * k }, true)
+  })
 }
 
 /** Explosion: smash every intact breakable within `radius`, launching shards
