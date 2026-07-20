@@ -106,10 +106,14 @@ const _e = new THREE.Euler()
 
 function capture(body: RapierRigidBody | null, prev: Piece): Piece {
   if (!body) return prev
-  const t = body.translation()
-  const rot = body.rotation()
-  _e.setFromQuaternion(_q.set(rot.x, rot.y, rot.z, rot.w))
-  return { p: [t.x, t.y, t.z], r: [_e.x, _e.y, _e.z], s: prev.s, gi: prev.gi }
+  try {
+    const t = body.translation()
+    const rot = body.rotation()
+    _e.setFromQuaternion(_q.set(rot.x, rot.y, rot.z, rot.w))
+    return { p: [t.x, t.y, t.z], r: [_e.x, _e.y, _e.z], s: prev.s, gi: prev.gi }
+  } catch {
+    return prev // stale wrapper mid-churn — bake at last known pose
+  }
 }
 
 // ---------------------------------------------------------------- LIVE

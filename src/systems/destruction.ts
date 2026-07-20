@@ -101,6 +101,15 @@ export function unmarkFrozenZone(id: number): void {
  * radially away from the blast, and wake any frozen rubble zone in range.
  * Impulse scales with mass so everything gets a comparable velocity kick. */
 export function blastBodies(world: PhysicsWorld, cx: number, cy: number, cz: number, radius: number, strength: number): void {
+  // Snapshot first, mutate after: applying wake-up impulses WHILE iterating the
+  // world re-enters the WASM borrow ("recursive use of an object" panic).
+  interface Hit {
+    body: Parameters<Parameters<PhysicsWorld['forEachRigidBody']>[0]>[0]
+    ix: number
+    iy: number
+    iz: number
+  }
+  const hits: Hit[] = []
   world.forEachRigidBody((body) => {
     if (!body.isDynamic()) return
     const t = body.translation()
@@ -110,8 +119,15 @@ export function blastBodies(world: PhysicsWorld, cx: number, cy: number, cz: num
     const dist = Math.hypot(dx, dy, dz)
     if (dist > radius || dist < 1e-3) return
     const k = strength * (1 - dist / radius) * body.mass()
-    body.applyImpulse({ x: (dx / dist) * k, y: (dy / dist + 0.7) * k, z: (dz / dist) * k }, true)
+    hits.push({ body, ix: (dx / dist) * k, iy: (dy / dist + 0.7) * k, iz: (dz / dist) * k })
   })
+  for (const h of hits) {
+    try {
+      h.body.applyImpulse({ x: h.ix, y: h.iy, z: h.iz }, true)
+    } catch {
+      // stale wrapper (body removed between snapshot and apply) — skip
+    }
+  }
   for (const [id, z] of frozenZones) {
     const d = Math.hypot(z.cx - cx, z.cy - cy, z.cz - cz)
     if (d < radius + z.r) {

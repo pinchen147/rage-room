@@ -37,8 +37,12 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
     if (spent.current) return
     spent.current = true
     const p = ref.current?.translation()
-    if (p) {
-      const at: [number, number, number] = [p.x, p.y, p.z]
+    onExpire(shot.id)
+    if (!p) return
+    const at: [number, number, number] = [p.x, p.y, p.z]
+    // Deferred out of the collision callback: mutating the world (breaks,
+    // impulses) inside Rapier's event drain can panic the WASM ("aliasing").
+    window.setTimeout(() => {
       radialSmash(at[0], at[1], at[2], w.blast ?? 5, w.blastPower ?? 10)
       blastBodies(world, at[0], at[1], at[2], w.blast ?? 5, 3.2)
       Audio.explosion(at)
@@ -47,8 +51,7 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
       emitSparks(at, 18)
       emitImpact(1, ...at)
       hitStop(70)
-    }
-    onExpire(shot.id)
+    }, 0)
   }
   const detonateRef = useRef(detonate)
   detonateRef.current = detonate
