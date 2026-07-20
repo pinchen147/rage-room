@@ -52,6 +52,7 @@ export function HUD() {
   const pct = useGame(destructionPct)
   const rage = useGame((s) => s.rage)
   const weaponIndex = useGame((s) => s.weaponIndex)
+  const perfLow = useGame((s) => s.perfLow)
   const [locked, setLocked] = useState(false)
   const prevRage = useRef(0)
 
@@ -101,6 +102,9 @@ export function HUD() {
           </div>
         ))}
         <div style={{ fontSize: 10, opacity: 0.55, marginTop: 6 }}>1–3 · Q / E · scroll to swap</div>
+        <div style={{ fontSize: 10, opacity: 0.7, marginTop: 8 }}>
+          {perfLow ? 'PERF MODE ON' : 'quality'} · P toggles
+        </div>
       </div>
 
       {!locked && (

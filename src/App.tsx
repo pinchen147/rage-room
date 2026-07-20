@@ -16,6 +16,7 @@ import { AudioListenerSync } from './audio/AudioListenerSync'
 import { Effects } from './render/Effects'
 import { ShadowThrottle } from './render/ShadowThrottle'
 import { useTime } from './feel/timeState'
+import { useGame } from './state/store'
 import { HUD } from './ui/HUD'
 import './loaders/assets'
 
@@ -23,13 +24,14 @@ const DEBUG = typeof window !== 'undefined' && window.location.search.includes('
 
 export function App() {
   const frozen = useTime((s) => s.frozen)
+  const perfLow = useGame((s) => s.perfLow)
   const [dpr, setDpr] = useState(1.25)
 
   return (
     <>
       <Canvas
         shadows="percentage"
-        dpr={dpr}
+        dpr={perfLow ? 1 : dpr}
         gl={{ antialias: false, stencil: false, depth: false, powerPreference: 'high-performance' }}
         camera={{ fov: 75, near: 0.1, far: 100, position: [0, 1.6, 5] }}
       >
@@ -47,7 +49,7 @@ export function App() {
             {/* last inside Physics so shake/FOV apply after the controller writes the camera */}
             <JuiceController />
           </Physics>
-          <Effects />
+          {!perfLow && <Effects />}
         </Suspense>
         <ParticleSystem />
         <ExplosionFlash />

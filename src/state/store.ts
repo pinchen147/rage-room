@@ -11,6 +11,9 @@ export interface GameState {
   rage: number
   /** Bump to remount the room (press R) — infinite rage. */
   roomKey: number
+  /** Performance mode (press P): post-FX off, DPR 1, shadows off. */
+  perfLow: boolean
+  togglePerf: () => void
   setTotalMass: (total: number) => void
   destroy: (mass: number) => void
   addRage: (amount: number) => void
@@ -30,6 +33,8 @@ export const useGame = create<GameState>((set) => ({
   destroyedMass: 0,
   rage: 0,
   roomKey: 0,
+  perfLow: false,
+  togglePerf: () => set((s) => ({ perfLow: !s.perfLow })),
   setTotalMass: (total) => set({ totalMass: total }),
   destroy: (mass) => set((s) => ({ destroyedMass: s.destroyedMass + mass })),
   addRage: (amount) => set((s) => ({ rage: Math.min(1, s.rage + amount) })),

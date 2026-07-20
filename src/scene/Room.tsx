@@ -1,5 +1,6 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
 import { usePbrSet } from './materials'
+import { useGame } from '../state/store'
 
 export const ROOM_HALF = 8 // room is 16 x 16 m — intimate garage
 const WALL_H = 2.25 // half-height → walls are 4.5 m tall
@@ -23,11 +24,12 @@ export function Room() {
   const floor = usePbrSet('/assets/textures/garage_floor', [3.5, 3.5])
   const wall = usePbrSet('/assets/textures/concrete_wall_004', [4, 1.2])
   const metal = usePbrSet('/assets/textures/metal_plate', [3, 2], true)
+  const perfLow = useGame((s) => s.perfLow)
 
   return (
     <>
       <directionalLight
-        castShadow
+        castShadow={!perfLow}
         position={[6, 11, 3]}
         intensity={1.6}
         color="#fff2dd"

@@ -168,6 +168,8 @@ export function WeaponSystem() {
         cycleWeapon(1)
       } else if (e.code === 'KeyR') {
         resetRoom()
+      } else if (e.code === 'KeyP') {
+        useGame.getState().togglePerf()
       } else if (e.code === 'KeyF' && locked()) {
         attack()
       }
