@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useThree } from '@react-three/fiber'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
@@ -8,8 +8,11 @@ import { WEAPONS } from './arsenal'
 import type { ThrowWeapon } from './arsenal'
 import { meleeSmash, radialSmash } from '../systems/destruction'
 import { emitImpact } from '../feel/impactBus'
+import { hitStop } from '../feel/timeState'
 import { triggerSwing } from './swing'
 import { triggerDash } from '../input/dash'
+import { emitDust, emitSparks } from '../vfx/Particles'
+import * as Audio from '../audio/AudioEngine'
 
 interface Shot {
   id: number
@@ -19,7 +22,7 @@ interface Shot {
 }
 let nextId = 0
 
-function Projectile({ shot, onExpire }: { shot: Shot; onExpire: (id: number) => void }) {
+const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; onExpire: (id: number) => void }) {
   const ref = useRef<RapierRigidBody>(null)
   const spent = useRef(false)
   const w = shot.weapon
@@ -44,8 +47,13 @@ function Projectile({ shot, onExpire }: { shot: Shot; onExpire: (id: number) => 
               spent.current = true
               const p = target.rigidBody?.translation()
               if (p) {
-                radialSmash(p.x, p.y, p.z, w.blast ?? 5, w.blastPower ?? 10)
-                emitImpact(0.9, p.x, p.y, p.z)
+                const at: [number, number, number] = [p.x, p.y, p.z]
+                radialSmash(at[0], at[1], at[2], w.blast ?? 5, w.blastPower ?? 10)
+                Audio.explosion(at)
+                emitDust(at, 26, 0.7)
+                emitSparks(at, 26)
+                emitImpact(1, ...at)
+                hitStop(70)
               }
               onExpire(shot.id)
             }
@@ -59,12 +67,12 @@ function Projectile({ shot, onExpire }: { shot: Shot; onExpire: (id: number) => 
           metalness={w.metal}
           roughness={0.35}
           emissive={w.blast ? '#39ff6a' : '#000000'}
-          emissiveIntensity={w.blast ? 0.5 : 0}
+          emissiveIntensity={w.blast ? 2.2 : 0}
         />
       </mesh>
     </RigidBody>
   )
-}
+})
 
 export function WeaponSystem() {
   const camera = useThree((s) => s.camera)
@@ -89,6 +97,7 @@ export function WeaponSystem() {
     camera.getWorldDirection(fwd)
     if (w.kind === 'melee') {
       if (w.dash) triggerDash(w.dash)
+      Audio.whoosh(true)
       const hits = meleeSmash(
         camera.position.x,
         camera.position.y,
@@ -101,8 +110,10 @@ export function WeaponSystem() {
         w.power,
       )
       addRage(0.02 + hits * 0.02)
-      emitImpact(0.5) // Thor slam shakes the screen even on a whiff
+      emitImpact(0.3 + hits * 0.12)
+      if (hits > 0) hitStop(40 + hits * 10)
     } else {
+      Audio.whoosh(w.id === 'bowling')
       const pos: [number, number, number] = [
         camera.position.x + fwd.x * 0.9,
         camera.position.y + fwd.y * 0.9,

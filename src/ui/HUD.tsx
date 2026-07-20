@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { destructionPct, useGame } from '../state/store'
 import { WEAPONS } from '../weapons/arsenal'
+import * as Audio from '../audio/AudioEngine'
 
 const overlay: CSSProperties = { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 10 }
 
@@ -50,15 +51,28 @@ const start: CSSProperties = {
 export function HUD() {
   const pct = useGame(destructionPct)
   const rage = useGame((s) => s.rage)
-  const lastImpact = useGame((s) => s.lastImpact)
   const weaponIndex = useGame((s) => s.weaponIndex)
   const [locked, setLocked] = useState(false)
+  const prevRage = useRef(0)
 
   useEffect(() => {
-    const onChange = () => setLocked(!!document.pointerLockElement)
+    void Audio.preload()
+    const onChange = () => {
+      const isLocked = !!document.pointerLockElement
+      setLocked(isLocked)
+      if (isLocked) {
+        Audio.unlock()
+        Audio.uiClick()
+      }
+    }
     document.addEventListener('pointerlockchange', onChange)
     return () => document.removeEventListener('pointerlockchange', onChange)
   }, [])
+
+  useEffect(() => {
+    if (rage >= 1 && prevRage.current < 1) Audio.rageFull()
+    prevRage.current = rage
+  }, [rage])
 
   return (
     <div style={overlay}>
@@ -68,7 +82,6 @@ export function HUD() {
         <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.7 }}>DESTRUCTION</div>
         <div style={{ fontSize: 30, fontWeight: 700 }}>{Math.round(pct * 100)}%</div>
         <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.7, marginTop: 6 }}>RAGE {Math.round(rage * 100)}%</div>
-        <div style={{ fontSize: 10, opacity: 0.4, marginTop: 8 }}>last impact {lastImpact.toFixed(1)} m/s</div>
       </div>
 
       <div style={weaponBox}>

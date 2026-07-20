@@ -1,0 +1,44 @@
+{
+  "note": "All bundled assets are CC0 (public domain dedication) — no attribution legally required. This file is provenance hygiene.",
+  "sources": [
+    {
+      "author": "Poly Haven",
+      "url": "https://polyhaven.com",
+      "license": "CC0",
+      "assets": [
+        "hdri/abandoned_garage_1k.hdr",
+        "textures/garage_floor/*",
+        "textures/concrete_wall_004/*",
+        "textures/metal_plate/*",
+        "models/Television_01/*",
+        "models/wine_bottles_01/*",
+        "models/ceramic_vase_01/*",
+        "models/plastic_monobloc_chair_01/*",
+        "models/cardboard_box_01/*",
+        "models/wooden_crate_01/*",
+        "models/steel_frame_shelves_01/*",
+        "models/metal_office_desk/*",
+        "models/barrel_03/*",
+        "models/old_tyre/*"
+      ]
+    },
+    {
+      "author": "Kenney",
+      "url": "https://kenney.nl",
+      "license": "CC0",
+      "assets": ["audio/impact/* (Impact Sounds)", "audio/scifi/* (Sci-Fi Sounds subset)", "audio/ui/* (Interface Sounds subset)"]
+    },
+    {
+      "author": "rubberduck (OpenGameArt)",
+      "url": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+      "license": "CC0",
+      "assets": ["audio/break/*", "audio/explosion/bang_*, cannon_* (25 CC0 bang sfx)"]
+    },
+    {
+      "author": "artisticdude (OpenGameArt)",
+      "url": "https://opengameart.org/content/swishes-sound-pack",
+      "license": "CC0",
+      "assets": ["audio/whoosh/*"]
+    }
+  ]
+}

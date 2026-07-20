@@ -5,13 +5,15 @@ import { onImpact } from './impactBus'
 
 const BASE_FOV = 75 // must match the Canvas camera fov
 
-/** Impact-bus-driven camera juice: FOV punch (owned solely here) + positional
- * shake. Mounted last inside <Physics> so its useFrame runs after the player
- * controller sets the base camera position. */
+/** Impact-bus camera juice: FOV punch (owned solely here) + coherent-noise
+ * shake. Mounted last inside <Physics> so it runs after the controller writes
+ * the base camera transform each frame. */
 export function JuiceController() {
   const camera = useThree((s) => s.camera)
   const shake = useRef(0)
   const punch = useRef(0)
+  const lastFov = useRef(BASE_FOV)
+  const t = useRef(0)
 
   useEffect(
     () =>
@@ -24,20 +26,24 @@ export function JuiceController() {
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 1 / 30)
+    t.current += dt
 
     punch.current *= Math.max(0, 1 - dt * 8)
     const cam = camera as PerspectiveCamera
-    if (cam.isPerspectiveCamera) {
-      cam.fov = BASE_FOV + punch.current
+    const fov = BASE_FOV + punch.current
+    if (cam.isPerspectiveCamera && Math.abs(fov - lastFov.current) > 0.02) {
+      cam.fov = fov
       cam.updateProjectionMatrix()
+      lastFov.current = fov
     }
 
     shake.current *= Math.max(0, 1 - dt * 6)
     if (shake.current > 0.001) {
-      const m = shake.current * 0.16
-      camera.position.x += (Math.random() - 0.5) * m
-      camera.position.y += (Math.random() - 0.5) * m
-      camera.position.z += (Math.random() - 0.5) * m
+      const s = shake.current * 0.14
+      const tt = t.current
+      camera.position.x += (Math.sin(tt * 39.7) + Math.sin(tt * 23.3) * 0.6) * s * 0.5
+      camera.position.y += (Math.sin(tt * 33.1 + 1.7) + Math.sin(tt * 19.9 + 0.6) * 0.6) * s * 0.5
+      camera.position.z += Math.sin(tt * 27.7 + 3.1) * s * 0.3
     }
   })
 
