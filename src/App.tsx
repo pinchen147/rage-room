@@ -5,7 +5,9 @@ import { Physics } from '@react-three/rapier'
 import { PlayerController } from './input/PlayerController'
 import { Room } from './scene/Room'
 import { SmashableField } from './props/SmashableBox'
-import { Weapons } from './weapons/Weapons'
+import { WeaponSystem } from './weapons/WeaponSystem'
+import { Viewmodel } from './weapons/Viewmodel'
+import { JuiceController } from './feel/JuiceController'
 import { HUD } from './ui/HUD'
 
 export function App() {
@@ -24,10 +26,13 @@ export function App() {
             <Room />
             <PlayerController />
             <SmashableField />
-            <Weapons />
+            <WeaponSystem />
+            {/* mounted last so its useFrame runs after the player sets camera pos */}
+            <JuiceController />
           </Physics>
         </Suspense>
         <AdaptiveDpr pixelated />
+        <Viewmodel />
         <PointerLockControls makeDefault />
       </Canvas>
       <HUD />

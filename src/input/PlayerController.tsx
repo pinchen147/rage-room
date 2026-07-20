@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { CapsuleCollider, RigidBody, useRapier } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
+import { onDash } from './dash'
 
 const SPEED = 6 // m/s
 const JUMP = 5 // m/s
@@ -68,6 +69,8 @@ export function PlayerController() {
   useEffect(() => () => world.removeCharacterController(controller), [world, controller])
 
   const vVel = useRef(0)
+  const dashRef = useRef(0)
+  useEffect(() => onDash((s) => (dashRef.current = s)), [])
   const move = useMemo(() => new THREE.Vector3(), [])
   const forward = useMemo(() => new THREE.Vector3(), [])
   const right = useMemo(() => new THREE.Vector3(), [])
@@ -89,6 +92,15 @@ export function PlayerController() {
     if (k.r) move.add(right)
     if (k.l) move.sub(right)
     if (move.lengthSq() > 0) move.normalize().multiplyScalar(SPEED * dt)
+
+    // Thor dash: a fast-decaying forward lunge added on top of walking.
+    if (dashRef.current > 0.1) {
+      move.x += forward.x * dashRef.current * dt
+      move.z += forward.z * dashRef.current * dt
+      dashRef.current *= Math.max(0, 1 - dt * 13)
+    } else {
+      dashRef.current = 0
+    }
 
     vVel.current += GRAVITY * dt
     const desired = { x: move.x, y: vVel.current * dt, z: move.z }
