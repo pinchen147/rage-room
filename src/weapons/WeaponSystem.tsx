@@ -43,8 +43,8 @@ const Projectile = memo(function Projectile({ shot, onExpire }: { shot: Shot; on
       blastBodies(world, at[0], at[1], at[2], w.blast ?? 5, 3.2)
       Audio.explosion(at)
       emitFlash(at)
-      emitDust(at, 26, 0.7)
-      emitSparks(at, 26)
+      emitDust(at, 18, 0.7)
+      emitSparks(at, 18)
       emitImpact(1, ...at)
       hitStop(70)
     }
@@ -140,7 +140,7 @@ export function WeaponSystem() {
         camera.position.z + fwd.z * 0.9,
       ]
       const vel: [number, number, number] = [fwd.x * w.speed, fwd.y * w.speed + 1.5, fwd.z * w.speed]
-      setShots((s) => [...s.slice(-30), { id: nextId++, pos, vel, weapon: w }])
+      setShots((s) => [...s.slice(-11), { id: nextId++, pos, vel, weapon: w }])
       addRage(0.02)
       emitImpact(0.08)
     }

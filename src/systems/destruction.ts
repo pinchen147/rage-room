@@ -78,34 +78,47 @@ export function slam(
   return { hits: 0, point }
 }
 
-/** Old rubble frozen to fixed bodies (see Debris) registers here so blasts and
- * slams can thaw it back to dynamic — debris ALWAYS reacts to physics. */
-const frozenDebris = new Map<number, () => void>()
+/** Frozen rubble zones (baked static debris, see Debris). A blast overlapping a
+ * zone un-bakes it back into live bodies — debris ALWAYS reacts to physics. */
+interface FrozenZone {
+  cx: number
+  cy: number
+  cz: number
+  r: number
+  thaw: (bx: number, by: number, bz: number, strength: number) => void
+}
+const frozenZones = new Map<number, FrozenZone>()
 
-export function markFrozen(handle: number, thaw: () => void): void {
-  frozenDebris.set(handle, thaw)
+export function markFrozenZone(id: number, zone: FrozenZone): void {
+  frozenZones.set(id, zone)
+}
+
+export function unmarkFrozenZone(id: number): void {
+  frozenZones.delete(id)
 }
 
 /** Explosion shockwave: kick every dynamic body (debris, toys, projectiles)
- * radially away from the blast — and re-animate any frozen rubble in range.
+ * radially away from the blast, and wake any frozen rubble zone in range.
  * Impulse scales with mass so everything gets a comparable velocity kick. */
 export function blastBodies(world: PhysicsWorld, cx: number, cy: number, cz: number, radius: number, strength: number): void {
   world.forEachRigidBody((body) => {
+    if (!body.isDynamic()) return
     const t = body.translation()
     const dx = t.x - cx
     const dy = t.y - cy
     const dz = t.z - cz
     const dist = Math.hypot(dx, dy, dz)
     if (dist > radius || dist < 1e-3) return
-    if (!body.isDynamic()) {
-      const thaw = frozenDebris.get(body.handle)
-      if (!thaw) return
-      thaw()
-      frozenDebris.delete(body.handle)
-    }
     const k = strength * (1 - dist / radius) * body.mass()
     body.applyImpulse({ x: (dx / dist) * k, y: (dy / dist + 0.7) * k, z: (dz / dist) * k }, true)
   })
+  for (const [id, z] of frozenZones) {
+    const d = Math.hypot(z.cx - cx, z.cy - cy, z.cz - cz)
+    if (d < radius + z.r) {
+      frozenZones.delete(id)
+      z.thaw(cx, cy, cz, strength)
+    }
+  }
 }
 
 /** Explosion: smash every intact breakable within `radius`, launching shards

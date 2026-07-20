@@ -1,6 +1,6 @@
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { AdaptiveDpr, Environment, Stats } from '@react-three/drei'
+import { Environment, PerformanceMonitor, Stats } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
 import { PlayerController } from './input/PlayerController'
 import { Room } from './scene/Room'
@@ -14,6 +14,7 @@ import { JuiceController } from './feel/JuiceController'
 import { HitStopDriver } from './feel/HitStopDriver'
 import { AudioListenerSync } from './audio/AudioListenerSync'
 import { Effects } from './render/Effects'
+import { ShadowThrottle } from './render/ShadowThrottle'
 import { useTime } from './feel/timeState'
 import { HUD } from './ui/HUD'
 import './loaders/assets'
@@ -22,12 +23,13 @@ const DEBUG = typeof window !== 'undefined' && window.location.search.includes('
 
 export function App() {
   const frozen = useTime((s) => s.frozen)
+  const [dpr, setDpr] = useState(1.25)
 
   return (
     <>
       <Canvas
         shadows="percentage"
-        dpr={[1, 1.25]}
+        dpr={dpr}
         gl={{ antialias: false, stencil: false, depth: false, powerPreference: 'high-performance' }}
         camera={{ fov: 75, near: 0.1, far: 100, position: [0, 1.6, 5] }}
       >
@@ -51,7 +53,8 @@ export function App() {
         <ExplosionFlash />
         <AudioListenerSync />
         <HitStopDriver />
-        <AdaptiveDpr pixelated />
+        <ShadowThrottle />
+        <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(1.25)} />
         <Viewmodel />
         {DEBUG && <Stats />}
       </Canvas>
