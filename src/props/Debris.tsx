@@ -45,6 +45,7 @@ interface Entry {
   id: number
   spec: DebrisSpec
   state: 'live' | 'frozen'
+  bornAt: number
   shards: Piece[]
   wrecks: Piece[]
   shardVels: Vel[]
@@ -59,6 +60,7 @@ export function spawnDebris(spec: DebrisSpec): void {
 }
 
 const LIVE_BATCHES = 14 // newest N stay dynamic; older rubble bakes to static
+const MIN_FREEZE_AGE_MS = 6000 // never bake mid-flight — rubble must settle first
 let nextBatchId = 0
 
 // Small shards skip shard-shard collisions (O(N²) contacts otherwise).
@@ -96,7 +98,7 @@ function genEntry(spec: DebrisSpec): Entry {
       a: [rand(8), rand(8), rand(8)],
     })
   }
-  return { id: nextBatchId++, spec, state: 'live', shards, wrecks, shardVels, wreckVels }
+  return { id: nextBatchId++, spec, state: 'live', bornAt: performance.now(), shards, wrecks, shardVels, wreckVels }
 }
 
 const _q = new THREE.Quaternion()
@@ -289,6 +291,7 @@ export function DebrisManager() {
         const thawed: Entry = {
           ...entry,
           state: 'live',
+          bornAt: performance.now(),
           shardVels: entry.shards.map((p) => radial(p, 1)),
           wreckVels: entry.wrecks.map((p) => radial(p, 0.7)),
         }
@@ -298,12 +301,24 @@ export function DebrisManager() {
   )
 
   const firstLive = Math.max(0, entries.length - LIVE_BATCHES)
+  const now = performance.now()
+  const mayFreeze = (e: Entry, i: number): boolean =>
+    i < firstLive && now - e.bornAt > MIN_FREEZE_AGE_MS
+
+  // A too-young batch past the window can't freeze yet — tick until it can.
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const pending = entries.some((e, i) => e.state === 'live' && i < entries.length - LIVE_BATCHES)
+    if (!pending) return
+    const t = window.setTimeout(() => forceTick((x) => x + 1), 1500)
+    return () => window.clearTimeout(t)
+  })
 
   return (
     <>
       {entries.map((e, i) =>
         e.state === 'live' ? (
-          <LiveBatch key={e.id} entry={e} freeze={i < firstLive} onFrozen={onFrozen} />
+          <LiveBatch key={e.id} entry={e} freeze={mayFreeze(e, i)} onFrozen={onFrozen} />
         ) : (
           <FrozenBatch key={e.id} entry={e} onThaw={onThaw} />
         ),
