@@ -110,7 +110,7 @@ export function SmashableProp({ def, position, rotationY = 0 }: Props) {
   return (
     <RigidBody
       ref={body}
-      type={def.fixed ? 'fixed' : 'dynamic'}
+      type="dynamic"
       colliders={def.collider}
       position={position}
       rotation={[0, rotationY, 0]}

@@ -29,7 +29,7 @@ export function App() {
         camera={{ fov: 75, near: 0.1, far: 100, position: [0, 1.6, 5] }}
       >
         <color attach="background" args={['#0b0b0c']} />
-        <fog attach="fog" args={['#0b0b0c', 18, 55]} />
+        <fog attach="fog" args={['#0b0b0c', 12, 40]} />
         <Suspense fallback={null}>
           <Environment files="/assets/hdri/abandoned_garage_1k.hdr" />
           {/* physics steps first (priority -100); all camera/FX code runs after at 0 */}

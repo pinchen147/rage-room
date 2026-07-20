@@ -7,11 +7,9 @@ export interface PropDef {
   node?: string
   material: MaterialClass
   mass: number
-  /** Relative impact speed (m/s) that shatters it. Infinity = unbreakable. */
+  /** Relative impact speed (m/s) that shatters it. EVERYTHING breaks. */
   breakSpeed: number
   collider: 'cuboid' | 'hull'
-  /** Physics body type: breakables + toys are dynamic, anchors are fixed. */
-  fixed?: boolean
   /** Real-world height in metres — the model is measured and normalized to this
    * at load (source GLTFs use inconsistent units; the shelves are 21m raw). */
   targetHeight: number
@@ -30,7 +28,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 14,
     breakSpeed: 7,
     collider: 'cuboid',
-    targetHeight: 0.55,
+    targetHeight: 0.7,
     shardCount: 16,
     heroes: 3,
   },
@@ -45,7 +43,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 2,
     breakSpeed: 5.5,
     collider: 'hull',
-    targetHeight: 0.42,
+    targetHeight: 0.52,
     shardCount: 10,
     heroes: 1,
   },
@@ -56,7 +54,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 5,
     breakSpeed: 8,
     collider: 'hull',
-    targetHeight: 0.86,
+    targetHeight: 0.95,
     shardCount: 11,
     heroes: 2,
   },
@@ -67,7 +65,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 2,
     breakSpeed: 6,
     collider: 'cuboid',
-    targetHeight: 0.42,
+    targetHeight: 0.55,
     shardCount: 9,
     heroes: 1,
   },
@@ -78,7 +76,7 @@ export const CATALOG: Record<string, PropDef> = {
     mass: 7,
     breakSpeed: 7.5,
     collider: 'cuboid',
-    targetHeight: 0.45,
+    targetHeight: 0.55,
     shardCount: 13,
     heroes: 2,
   },
@@ -87,48 +85,46 @@ export const CATALOG: Record<string, PropDef> = {
     file: `${M}/barrel_03/barrel_03_1k.gltf`,
     material: 'metal',
     mass: 22,
-    breakSpeed: Infinity,
+    breakSpeed: 9,
     collider: 'hull',
-    targetHeight: 0.9,
+    targetHeight: 1.0,
     restitution: 0.35,
-    shardCount: 0,
-    heroes: 0,
+    shardCount: 14,
+    heroes: 2,
   },
   tyre: {
     id: 'tyre',
     file: `${M}/old_tyre/old_tyre_1k.gltf`,
     material: 'generic',
     mass: 11,
-    breakSpeed: Infinity,
+    breakSpeed: 9,
     collider: 'hull',
-    targetHeight: 0.62,
+    targetHeight: 0.7,
     restitution: 0.75,
-    shardCount: 0,
-    heroes: 0,
+    shardCount: 10,
+    heroes: 2,
   },
   desk: {
     id: 'desk',
     file: `${M}/metal_office_desk/metal_office_desk_1k.gltf`,
     material: 'metal',
-    mass: 0,
-    breakSpeed: Infinity,
+    mass: 30,
+    breakSpeed: 9,
     collider: 'cuboid',
-    fixed: true,
-    targetHeight: 0.75,
-    shardCount: 0,
-    heroes: 0,
+    targetHeight: 0.8,
+    shardCount: 16,
+    heroes: 3,
   },
   shelves: {
     id: 'shelves',
     file: `${M}/steel_frame_shelves_01/steel_frame_shelves_01_1k.gltf`,
     material: 'metal',
-    mass: 0,
-    breakSpeed: Infinity,
+    mass: 35,
+    breakSpeed: 10,
     collider: 'cuboid',
-    fixed: true,
-    targetHeight: 2.0,
-    shardCount: 0,
-    heroes: 0,
+    targetHeight: 2.15,
+    shardCount: 18,
+    heroes: 3,
   },
 }
 
@@ -141,7 +137,7 @@ function bottle(name: string): PropDef {
     mass: 1,
     breakSpeed: 5,
     collider: 'hull',
-    targetHeight: 0.32,
+    targetHeight: 0.38,
     shardCount: 8,
     heroes: 0,
   }

@@ -1,8 +1,8 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
 import { usePbrSet } from './materials'
 
-export const ROOM_HALF = 12 // room is 24 x 24 m
-const WALL_H = 3 // half-height → walls are 6 m tall
+export const ROOM_HALF = 8 // room is 16 x 16 m — intimate garage
+const WALL_H = 2.25 // half-height → walls are 4.5 m tall
 
 const WALLS: { pos: [number, number, number]; half: [number, number, number] }[] = [
   { pos: [0, WALL_H, -ROOM_HALF], half: [ROOM_HALF, WALL_H, 0.5] },
@@ -20,8 +20,8 @@ const PILLARS: [number, number][] = [
 
 /** PBR abandoned-garage shell. Colliders are identical to the original flat room. */
 export function Room() {
-  const floor = usePbrSet('/assets/textures/garage_floor', [5, 5])
-  const wall = usePbrSet('/assets/textures/concrete_wall_004', [6, 1.6])
+  const floor = usePbrSet('/assets/textures/garage_floor', [3.5, 3.5])
+  const wall = usePbrSet('/assets/textures/concrete_wall_004', [4, 1.2])
   const metal = usePbrSet('/assets/textures/metal_plate', [3, 2], true)
 
   return (
@@ -32,18 +32,18 @@ export function Room() {
         intensity={1.6}
         color="#fff2dd"
         shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-14}
-        shadow-camera-right={14}
-        shadow-camera-top={14}
-        shadow-camera-bottom={-14}
-        shadow-camera-far={32}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
+        shadow-camera-far={28}
         shadow-bias={-0.0004}
       />
 
       <RigidBody type="fixed" colliders={false}>
         {/* floor */}
         <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[24, 24]} />
+          <planeGeometry args={[16, 16]} />
           <meshStandardMaterial {...floor} roughness={1} metalness={0.02} />
         </mesh>
         <CuboidCollider args={[ROOM_HALF, 0.5, ROOM_HALF]} position={[0, -0.5, 0]} />
